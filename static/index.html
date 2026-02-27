@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>太鼓之達人 AI 遊玩顧問</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <!-- 整個應用程式填滿畫面 -->
+    <div class="app-container">
+
+        <!-- 手機版側邊欄遮罩 -->
+        <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+        <!-- 左側主視覺與標題 (類似太鼓達人的街機感) -->
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <h1>太鼓之達人 <span>AI 顧問</span></h1>
+                <p>輸入你的需求，找尋最適合你的譜面</p>
+            </div>
+
+            <div class="examples">
+                <h3>試試看這樣問：</h3>
+                <button onclick="setInputValue('推薦一首鬼級 8 星的歌')">推薦一首鬼級 8 星的歌</button>
+                <button onclick="setInputValue('我想練體力，有適合的魔王曲嗎？')">我想練體力，有適合的魔王曲嗎？</button>
+                <button onclick="setInputValue('推薦vocaloid的歌曲')">推薦vocaloid的歌曲</button>
+                <button onclick="setInputValue('有什麼 BPM 超過 200 的歌？')">有什麼 BPM 超過 200 的歌？</button>
+            </div>
+
+            <div class="saved-sessions-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 style="font-size: 14px; color: #9ece6a; margin: 0;">歷史紀錄</h3>
+                    <button class="save-btn" onclick="saveCurrentSession()">💾 儲存對話</button>
+                </div>
+                <div id="sessions-list" class="sessions-list">
+                    <!-- 歷史對話會顯示在這裡 -->
+                </div>
+                <button class="new-chat-btn" onclick="startNewChat()">+ 開啟新對話</button>
+            </div>
+
+            <div class="sidebar-footer"
+                style="margin-top: auto; padding-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                <button class="edit-profile-btn" onclick="openProfileModal()">✏️ 修改玩家履歷</button>
+                <button class="logout-btn" onclick="logout()">登出目前帳號</button>
+            </div>
+        </aside>
+
+        <!-- 右側主要聊天區域 -->
+        <main class="chat-container">
+            <div class="chat-header">
+                <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+                <h2>CHAT</h2>
+                <span class="status-indicator"></span>
+            </div>
+
+            <div class="chat-history" id="chat-history">
+                <!-- 預設歡迎訊息 -->
+                <div class="message-wrapper bot-message">
+                    <div class="message-bubble">
+                        你好！我是你的專屬「太鼓之達人」遊玩顧問，有什麼我可以幫忙推薦的嗎？
+                    </div>
+                </div>
+            </div>
+
+            <div class="typing-indicator" id="typing-indicator" style="display: none;">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="告訴我你想打什麼樣的歌..." autocomplete="off"
+                    onkeypress="handleEnter(event)">
+                <button id="send-btn" onclick="sendMessage()">發送</button>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- 登入與設定彈窗 -->
+    <div id="auth-overlay" class="auth-overlay" style="display: none;">
+        <!-- 登入框 -->
+        <div id="login-modal" class="auth-modal">
+            <h2>太鼓之達人 AI 顧問</h2>
+            <p>請輸入您的存取代碼 (Access Code)</p>
+            <input type="password" id="access-code-input" placeholder="Access Code">
+            <button onclick="login()">登入</button>
+            <p id="login-error" class="error-text" style="display: none;">無效的存取代碼</p>
+        </div>
+
+        <!-- 初次登入或修改的用戶畫像問卷 -->
+        <div id="profile-modal" class="auth-modal" style="display: none;">
+            <h2>建立您的太鼓履歷</h2>
+            <p>讓我們更了解您的實力，以便 AI 提供精準推薦！</p>
+
+            <div class="form-group">
+                <label>您的玩家名稱？</label>
+                <input type="text" id="profile-name" placeholder="輸入你在遊戲中的名稱或暱稱">
+            </div>
+
+            <div class="form-group">
+                <label>目前最高段位 / 實力水準？</label>
+                <input type="text" id="profile-level" placeholder="例如：超人、十段、或最高能通關鬼級 8 星">
+            </div>
+
+            <div class="form-group">
+                <label>平常喜歡打幾顆星的難度？</label>
+                <select id="profile-star">
+                    <option value="6星以下">6星以下 (休閒玩家)</option>
+                    <option value="7~8星">7~8星 (進階玩家)</option>
+                    <option value="9星">9星 (高段玩家)</option>
+                    <option value="10星">10星 (魔王挑戰者)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>您的打法偏好？</label>
+                <select id="profile-style">
+                    <option value="正攻為主">正攻為主 (單手或交互，注重節奏)</option>
+                    <option value="交互為主">交互為主 (左右手輪流，穩定輸出)</option>
+                    <option value="特良偏執">特良偏執 (極度要求判定精準度)</option>
+                    <option value="體力爆發">體力爆發 (偏好高BPM、高密度譜面)</option>
+                    <option value="綜合">我全都要 (綜合型玩家)</option>
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button onclick="saveProfile()" style="flex: 1;">儲存並開始使用</button>
+                <button id="close-profile-btn" onclick="closeProfileModal()"
+                    style="flex: 1; background: #3b4261; display: none;">取消修改</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 載入 Marked.js 用於渲染 Markdown 回覆 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

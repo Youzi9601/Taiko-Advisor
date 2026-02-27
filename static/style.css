@@ -1,0 +1,635 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: #1a1b26;
+    color: #a9b1d6;
+    height: 100vh;
+    overflow: hidden;
+    /* 防止整個網頁有捲軸 */
+    background-image:
+        radial-gradient(circle at 15% 50%, rgba(247, 118, 142, 0.15), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(122, 162, 247, 0.15), transparent 25%);
+}
+
+.app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* 手機側邊欄遮罩 */
+.sidebar-overlay {
+    display: none;
+}
+
+/* 左側控制面板 */
+.sidebar {
+    width: 320px;
+    background: rgba(22, 22, 30, 0.8);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 30px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    z-index: 10;
+    transition: margin-left 0.3s ease;
+}
+
+.sidebar.collapsed {
+    margin-left: -320px;
+}
+
+.brand h1 {
+    color: #f7768e;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+
+.brand span {
+    color: #7aa2f7;
+}
+
+.brand p {
+    font-size: 13px;
+    color: #565f89;
+}
+
+.features {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.feature-tag {
+    background: rgba(122, 162, 247, 0.1);
+    color: #7aa2f7;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+}
+
+.examples h3 {
+    font-size: 14px;
+    color: #9ece6a;
+    margin-bottom: 12px;
+}
+
+.examples button {
+    width: 100%;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: #a9b1d6;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 13px;
+}
+
+.examples button:hover {
+    background: rgba(122, 162, 247, 0.15);
+    border-color: rgba(122, 162, 247, 0.3);
+    color: #fff;
+    transform: translateX(5px);
+}
+
+/* 右側聊天區域 */
+.chat-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: relative;
+}
+
+.chat-header {
+    height: 60px;
+    background: rgba(26, 27, 38, 0.9);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    padding: 0 30px;
+    gap: 10px;
+}
+
+.chat-header h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #c0caf5;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #9ece6a;
+    box-shadow: 0 0 10px #9ece6a;
+}
+
+/* 聊天記錄 */
+.chat-history {
+    flex: 1;
+    overflow-y: auto;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    scroll-behavior: smooth;
+}
+
+/* 隱藏捲軸但可捲動 */
+.chat-history::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-history::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.message-wrapper {
+    display: flex;
+    width: 100%;
+    animation: fadeIn 0.3s ease-up;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.bot-message {
+    justify-content: flex-start;
+}
+
+.user-message {
+    justify-content: flex-end;
+}
+
+.message-bubble {
+    max-width: 80%;
+    padding: 16px 20px;
+    border-radius: 12px;
+    font-size: 15px;
+    line-height: 1.6;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.user-message .message-bubble {
+    background: linear-gradient(135deg, #f7768e, #db4b4b);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.bot-message .message-bubble {
+    background: rgba(36, 40, 59, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: #c0caf5;
+    border-bottom-left-radius: 4px;
+}
+
+/* Markdown 特殊樣式 */
+.message-bubble strong {
+    color: #ff9e64;
+}
+
+.user-message .message-bubble strong {
+    color: #fff;
+}
+
+.message-bubble p {
+    margin-bottom: 10px;
+}
+
+.message-bubble ul,
+.message-bubble ol {
+    margin-left: 20px;
+    margin-bottom: 10px;
+}
+
+.message-bubble blockquote {
+    border-left: 4px solid #7aa2f7;
+    margin: 10px 0;
+    padding-left: 15px;
+    color: #7dcfff;
+}
+
+/* 打字等待動畫 */
+.typing-indicator {
+    padding: 0 30px 20px 30px;
+    display: flex;
+    gap: 4px;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    background: #7aa2f7;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+.dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(0.6);
+        opacity: 0.4;
+    }
+
+    50% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* 底部輸入列 */
+.chat-input-area {
+    padding: 24px 30px;
+    background: rgba(22, 22, 30, 0.95);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    gap: 15px;
+}
+
+#chat-input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 16px 20px;
+    color: #fff;
+    font-size: 15px;
+    transition: border-color 0.2s;
+    outline: none;
+}
+
+#chat-input:focus {
+    border-color: #7aa2f7;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+#send-btn {
+    background: #7aa2f7;
+    color: #1a1b26;
+    border: none;
+    padding: 0 30px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#send-btn:hover {
+    background: #8caaee;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(122, 162, 247, 0.3);
+}
+
+#send-btn:active {
+    transform: translateY(0);
+}
+
+/* 驗證與設定彈窗 */
+.auth-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.auth-modal {
+    background: #1a1b26;
+    border: 1px solid #3b4261;
+    border-radius: 12px;
+    padding: 40px;
+    width: 400px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    text-align: center;
+}
+
+.auth-modal h2 {
+    color: #f7768e;
+    margin-bottom: 10px;
+}
+
+.auth-modal p {
+    color: #a9b1d6;
+    margin-bottom: 25px;
+    font-size: 14px;
+}
+
+.auth-modal input[type="password"],
+.auth-modal input[type="text"],
+.auth-modal select {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid #3b4261;
+    color: #c0caf5;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    outline: none;
+    font-size: 14px;
+}
+
+.auth-modal input:focus,
+.auth-modal select:focus {
+    border-color: #7aa2f7;
+}
+
+.auth-modal select option {
+    background-color: #1a1b26;
+    color: #c0caf5;
+}
+
+.auth-modal button {
+    width: 100%;
+    background: #7aa2f7;
+    color: #1a1b26;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+    font-size: 15px;
+}
+
+.auth-modal button:hover {
+    background: #8caaee;
+    transform: translateY(-2px);
+}
+
+.error-text {
+    color: #f7768e !important;
+    margin-top: 15px;
+    margin-bottom: 0 !important;
+}
+
+.form-group {
+    text-align: left;
+    margin-bottom: 5px;
+}
+
+.form-group label {
+    display: block;
+    color: #7aa2f7;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+/* 歷史紀錄區塊 CSS */
+.saved-sessions-container {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.sessions-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.session-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.session-item:hover {
+    background: rgba(122, 162, 247, 0.15);
+    border-color: rgba(122, 162, 247, 0.3);
+}
+
+.session-item-title {
+    font-size: 13px;
+    color: #c0caf5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+
+.delete-session-btn {
+    background: transparent;
+    border: none;
+    color: #f7768e;
+    cursor: pointer;
+    font-size: 14px;
+    opacity: 0.5;
+    transition: 0.2s;
+}
+
+.delete-session-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.save-btn {
+    background: transparent;
+    border: 1px solid #7aa2f7;
+    color: #7aa2f7;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.save-btn:hover {
+    background: #7aa2f7;
+    color: #1a1b26;
+}
+
+.new-chat-btn {
+    background: rgba(158, 206, 106, 0.1);
+    border: 1px dashed #9ece6a;
+    color: #9ece6a;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.new-chat-btn:hover {
+    background: #9ece6a;
+    color: #1a1b26;
+}
+
+.edit-profile-btn {
+    width: 100%;
+    background: rgba(122, 162, 247, 0.1);
+    border: 1px dashed #7aa2f7;
+    color: #7aa2f7;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.edit-profile-btn:hover {
+    background: #7aa2f7;
+    color: #1a1b26;
+}
+
+.logout-btn {
+    width: 100%;
+    background: rgba(247, 118, 142, 0.1);
+    border: 1px dashed #f7768e;
+    color: #f7768e;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.logout-btn:hover {
+    background: #f7768e;
+    color: #1a1b26;
+}
+
+.toggle-btn {
+    background: transparent;
+    border: none;
+    color: #a9b1d6;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 4px;
+    transition: 0.2s;
+}
+
+.toggle-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* RWD: 手機版面支援 */
+@media (max-width: 768px) {
+    .app-container {
+        position: relative;
+    }
+
+    .sidebar {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        width: 100vw;
+        /* 手機端選單佔滿全螢幕以方便閱讀 */
+        max-width: 320px;
+        z-index: 100;
+        transform: translateX(0);
+        margin-left: 0;
+        transition: transform 0.3s ease;
+        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.5);
+    }
+
+    /* 手機上的隱藏改為用 transform 移出畫面 */
+    .sidebar.collapsed {
+        margin-left: 0;
+        transform: translateX(-100%);
+        box-shadow: none;
+    }
+
+    .sidebar-overlay.active {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 90;
+        backdrop-filter: blur(2px);
+    }
+
+    .auth-modal {
+        width: 90%;
+        padding: 30px 20px;
+    }
+
+    .chat-header {
+        padding: 0 15px;
+    }
+
+    .chat-history {
+        padding: 15px;
+    }
+
+    .message-bubble {
+        max-width: 95%;
+        font-size: 14px;
+    }
+
+    .chat-input-area {
+        padding: 15px;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    #send-btn {
+        width: 100%;
+        padding: 12px;
+    }
+}
