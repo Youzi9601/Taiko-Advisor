@@ -1,24 +1,22 @@
 import json
 import chromadb
 from sentence_transformers import SentenceTransformer
-
-db_path = "e:/workplace/taiko_ai/data/songs.json"
-chroma_path = "e:/workplace/taiko_ai/data/chroma_db"
+import config
 
 
 def init_chromadb():
     print("載入嵌入模型 (這可能需要一點時間)...")
     # 使用輕量的多國語言模型，對中文和日文支援較好
-    encoder = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+    encoder = SentenceTransformer(config.EMBEDDING_MODEL)
 
-    print(f"連接或建立 ChromaDB (路徑: {chroma_path})...")
-    client = chromadb.PersistentClient(path=chroma_path)
+    print(f"連接或建立 ChromaDB (路徑: {config.CHROMA_DB_PATH})...")
+    client = chromadb.PersistentClient(path=config.CHROMA_DB_PATH)
 
-    print("取得或建立集合 'taiko_songs'...")
-    collection = client.get_or_create_collection(name="taiko_songs")
+    print(f"取得或建立集合 '{config.CHROMA_COLLECTION_NAME}'...")
+    collection = client.get_or_create_collection(name=config.CHROMA_COLLECTION_NAME)
 
     print("讀取現有的 songs.json...")
-    with open(db_path, "r", encoding="utf-8") as f:
+    with open(config.SONGS_DB_PATH, "r", encoding="utf-8") as f:
         songs = json.load(f)
 
     ids = []
@@ -58,7 +56,7 @@ def init_chromadb():
 
     # 批次存入 ChromaDB
     # 為避免一次塞太多，我們切分批次
-    batch_size = 500
+    batch_size = config.CHROMA_BATCH_SIZE
     for i in range(0, len(ids), batch_size):
         end_idx = min(i + batch_size, len(ids))
         print(f"正在存入索引 {i} 到 {end_idx - 1}...")

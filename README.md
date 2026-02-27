@@ -4,18 +4,45 @@
 註 : 所有程式碼均使用vibe coding
 
 ## ✨ 核心特色
-- **🤖 AI 驅動的推薦系統**：使用 Gemini 模型爬取並深度分析網路攻略文字，自動萃取出客觀的譜面標籤（如：高BPM、體力向、三連音為主）。
-- **🔍 語意向量搜尋**：將包含 Max Combo 與 AI 標籤的歌曲資料嵌入為 ChromaDB 向量，實現自然語言查詢。
-- **🎮 個人畫像記憶**：支援存取代碼登入，並能記住個人的「太鼓履歷」（最高段位、愛好星級、打法）。
-- **💬 聊天室記憶與串流回覆**：儲存最多三組歷史對話紀錄，並且以打字機風格動態串流輸出。
+- **🤖 AI 驅動的推薦系統**：使用 Gemini 模型深度分析網路攻略，自動萃取譜面標籤（高BPM、體力向、三連音等）
+- **🔍 語意向量搜尋**：ChromaDB 向量搜尋實現自然語言查詢
+- **🎮 個人畫像記憶**：存取代碼登入，記住玩家的「太鼓履歷」（段位、愛好星級、打法風格）
+- **💬 聊天與對話管理**：最多三組歷史對話紀錄，串流式動態回覆
 
-## 專案結構
-- `scraper.py`: 從 wikiwiki 爬取並過濾出純淨的歌曲清單。
-- `generate_tags.py`: 深度爬蟲與 AI 特徵精煉器，抓取最大連擊數與特徵標籤。
-- `init_chroma.py`: 將 `songs.json` 的歌曲轉換成 ChromaDB 語意向量庫。
-- `server.py`: FastAPI 核心伺服器，負責與前端介接、Gemini 串流對答、與帳號驗證。
-- `static/`: 前端 HTML / CSS / JS 介面代碼。
-- `data/`: 存放 `songs.json` 歌曲庫與 `users.json` 帳號資料。
+## 📁 專案結構
+
+### 核心文件
+- `server.py`: FastAPI 應用程式入口點，包含中間件與路由註冊
+- `config.py`: 集中配置文件（API Key、資料庫路徑、安全設定等）
+- `scraper.py`: 從 wikiwiki 爬取並過濾歌曲清單
+- `generate_tags.py`: AI 特徵精煉器，抓取最大連擊數與譜面標籤
+- `init_chroma.py`: 將歌曲轉換成 ChromaDB 向量庫
+
+### 模塊化架構 (`lib/` 目錄)
+```
+lib/
+├── auth/
+│   ├── token_manager.py      # 令牌生命週期管理（黑名單、過期驗證）
+│   └── validators.py          # 輸入驗證與消毒（防注入）
+├── services/
+│   ├── user_service.py        # 用戶數據操作（CRUD）
+│   └── chat_service.py        # 聊天上下文構建與提示詞生成
+├── utils/                     # 實用函數工具
+└── dependencies.py            # FastAPI 依賴注入系統
+```
+
+### API 路由 (`api/` 目錄)
+```
+api/
+├── login/route.py             # POST /api/login - 用戶認證
+├── profile/route.py           # GET/POST /api/profile - 個人資料管理
+├── sessions/route.py          # GET/POST/DELETE /api/sessions - 對話歷史
+└── chat/route.py              # POST /api/chat, /api/logout - 聊天與登出
+```
+
+### 前端與資料
+- `static/`: HTML / CSS / JS 前端介面
+- `data/`: 歌曲庫 (`songs.json`) 與使用者帳戶 (`users.json`)
 
 ## 🚀 佈署與啟動指南
 

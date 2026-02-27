@@ -8,6 +8,14 @@ let accessCode = localStorage.getItem('access_code');
 let chatContext = [];
 let currentSessions = [];
 
+function showErrorMessage(message) {
+    appendMessage('bot', `❌ 錯誤: ${message}`);
+}
+
+function showSuccessMessage(message) {
+    appendMessage('bot', `✅ ${message}`);
+}
+
 // 初始化驗證
 window.onload = () => {
     if (!accessCode) {
@@ -20,7 +28,10 @@ window.onload = () => {
 
 async function login() {
     const code = document.getElementById('access-code-input').value.trim();
-    if (!code) return;
+    if (!code) {
+        showErrorMessage('請輸入存取代碼');
+        return;
+    }
 
     try {
         const res = await fetch('/api/login', {
@@ -38,17 +49,19 @@ async function login() {
 
             if (data.needs_profile) {
                 document.getElementById('profile-modal').style.display = 'block';
-                document.getElementById('close-profile-btn').style.display = 'none'; // 強制填寫，不給取消
+                document.getElementById('close-profile-btn').style.display = 'none';
             } else {
                 document.getElementById('auth-overlay').style.display = 'none';
                 loadSessions();
             }
         } else {
+            showErrorMessage(data.error || '驗證失敗，請檢查存取代碼');
             document.getElementById('login-error').style.display = 'block';
             document.getElementById('login-error').textContent = data.error || '驗證失敗';
         }
     } catch (e) {
-        alert('連線失敗');
+        console.error('登入錯誤:', e);
+        showErrorMessage('連線失敗，請檢查網路連接');
     }
 }
 
@@ -58,8 +71,14 @@ async function saveProfile() {
     const starPref = document.getElementById('profile-star').value;
     const style = document.getElementById('profile-style').value;
 
-    if (!name) return alert('請填寫玩家名稱！');
-    if (!level) return alert('請填寫最高段位！');
+    if (!name) {
+        showErrorMessage('請填寫玩家名稱！');
+        return;
+    }
+    if (!level) {
+        showErrorMessage('請填寫最高段位！');
+        return;
+    }
 
     try {
         const res = await fetch('/api/profile', {
@@ -73,9 +92,13 @@ async function saveProfile() {
             document.getElementById('profile-modal').style.display = 'none';
             appendMessage('bot', '✅ 您的玩家履歷已設定 / 更新成功！');
             loadSessions();
+        } else {
+            const data = await res.json();
+            showErrorMessage(data.error || '儲存失敗');
         }
     } catch (e) {
-        alert('儲存失敗');
+        console.error('儲存失敗:', e);
+        showErrorMessage('儲存失敗，請檢查網路連接');
     }
 }
 
@@ -86,9 +109,11 @@ async function loadSessions() {
             const data = await res.json();
             currentSessions = data.sessions || [];
             renderSessions();
+        } else {
+            console.error("無法載入歷史紀錄");
         }
     } catch (e) {
-        console.error("無法載入歷史紀錄");
+        console.error("無法載入歷史紀錄:", e);
     }
 }
 
@@ -144,15 +169,25 @@ async function deleteSession(id) {
         const res = await fetch(`/api/sessions/${id}?code=${accessCode}`, { method: 'DELETE' });
         if (res.ok) {
             loadSessions();
+        } else {
+            const data = await res.json();
+            showErrorMessage(data.error || '刪除失敗');
         }
     } catch (e) {
-        alert('刪除失敗');
+        console.error('刪除錯誤:', e);
+        showErrorMessage('刪除失敗，請檢查網路連接');
     }
 }
 
 async function saveCurrentSession() {
-    if (chatContext.length < 2) return alert('對話內容太空，不需要儲存喔！');
-    if (currentSessions.length >= 3) return alert('儲存空間已滿 (最多3筆)，請先刪除舊的對話。');
+    if (chatContext.length < 2) {
+        showErrorMessage('對話內容太空，不需要儲存喔！');
+        return;
+    }
+    if (currentSessions.length >= 3) {
+        showErrorMessage('儲存空間已滿 (最多3筆)，請先刪除舊的對話。');
+        return;
+    }
 
     // 取第一句使用者的話當標題
     let title = "未命名對話";
@@ -169,14 +204,15 @@ async function saveCurrentSession() {
         });
 
         if (res.ok) {
-            alert('對話已儲存！');
+            showSuccessMessage('對話已儲存！');
             loadSessions();
         } else {
             const err = await res.json();
-            alert(err.error || '儲存失敗');
+            showErrorMessage(err.error || '儲存失敗');
         }
     } catch (e) {
-        alert('連線異常');
+        console.error('儲存錯誤:', e);
+        showErrorMessage('連線異常，請稍後再試');
     }
 }
 
@@ -207,7 +243,8 @@ function appendMessage(sender, text, saveToContext = true) {
 
     // 解析 markdown 或是純文字
     if (sender === 'bot' || sender === 'model') {
-        bubble.innerHTML = marked.parse(text);
+        // 使用 DOMPurify 清理 HTML 防止 XSS 攻擊
+        bubble.innerHTML = DOMPurify.sanitize(marked.parse(text));
     } else {
         bubble.textContent = text;
     }
@@ -276,7 +313,7 @@ async function sendMessage() {
 
                 const chunk = decoder.decode(value, { stream: true });
                 fullText += chunk;
-                bubble.innerHTML = marked.parse(fullText);
+                bubble.innerHTML = DOMPurify.sanitize(marked.parse(fullText));
                 chatHistory.scrollTop = chatHistory.scrollHeight;
             }
 
@@ -289,7 +326,8 @@ async function sendMessage() {
 
     } catch (err) {
         typingIndicator.style.display = 'none';
-        appendMessage('bot', '連線異常，請檢查你的網路或伺服器狀態。');
+        console.error('聊天錯誤:', err);
+        appendMessage('bot', '❌ 連線異常，請檢查你的網路或伺服器狀態。');
         statusIndicator.style.backgroundColor = '#f7768e'; // 紅色錯誤狀態
         statusIndicator.style.boxShadow = '0 0 10px #f7768e';
     }
@@ -301,6 +339,19 @@ async function sendMessage() {
 
 function logout() {
     if (!confirm('確定要登出嗎？')) return;
+    
+    try {
+        // 調用後端 logout 端點使令牌失效
+        fetch('/api/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: accessCode })
+        }).catch(e => console.error('登出請求失敗:', e));
+    } catch (e) {
+        console.error('登出錯誤:', e);
+    }
+    
+    // 清除本地存儲
     localStorage.removeItem('access_code');
     location.reload();
 }
@@ -344,9 +395,13 @@ async function openProfileModal() {
             document.getElementById('profile-level').value = p.level || '';
             if (p.star_pref) document.getElementById('profile-star').value = p.star_pref;
             if (p.style) document.getElementById('profile-style').value = p.style;
+        } else {
+            const data = await res.json();
+            showErrorMessage(data.error || '無法載入履歷');
         }
     } catch (e) {
         console.error("無法載入履歷", e);
+        showErrorMessage('無法載入履歷，請檢查網路連接');
     }
     document.getElementById('auth-overlay').style.display = 'flex';
     document.getElementById('login-modal').style.display = 'none';

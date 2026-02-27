@@ -6,39 +6,17 @@ import time
 import random
 import re
 import urllib.parse
+import config
 
 
 def scrape_taiko_wiki():
-    categories = [
-        "ポップス",
-        "キッズ",
-        "アニメ",
-        "ボーカロイド™曲",
-        "ゲームミュージック",
-        "バラエティ",
-        "クラシック",
-        "ナムコオリジナル",
-        "段位道場課題曲",
-    ]
-    base_url = "https://wikiwiki.jp/taiko-fumen/%E4%BD%9C%E5%93%81/%E6%96%B0AC/"
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
+    categories = config.TAIKO_CATEGORIES
+    base_url = config.TAIKO_WIKI_BASE_URL
+    headers = config.HTTP_HEADERS
 
     songs = []
 
-    category_prefixes = {
-        "ポップス": 100000,
-        "キッズ": 200000,
-        "アニメ": 300000,
-        "ボーカロイド™曲": 400000,
-        "ゲームミュージック": 500000,
-        "バラエティ": 600000,
-        "クラシック": 700000,
-        "ナムコオリジナル": 800000,
-        "段位道場課題曲": 900000,
-    }
+    category_prefixes = config.CATEGORY_PREFIXES
 
     # 用字典記錄每個類別目前的計數器
     category_counters = {k: 1 for k in categories}
@@ -49,11 +27,11 @@ def scrape_taiko_wiki():
         print(f"正在請求與解析 wikiwiki.jp 歌曲列表 ({category})...")
 
         try:
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.get(url, headers=headers, timeout=config.HTTP_TIMEOUT)
             response.raise_for_status()
 
             # 加上隨機延遲保護伺服器
-            delay = random.uniform(3, 5)
+            delay = random.uniform(config.HTTP_DELAY_MIN, config.HTTP_DELAY_MAX)
             print(f"等待 {delay:.2f} 秒再進行後續動作...")
             time.sleep(delay)
 
@@ -184,7 +162,9 @@ def scrape_taiko_wiki():
     return songs
 
 
-def merge_and_save(new_songs, db_path="data/songs.json"):
+def merge_and_save(new_songs, db_path=None):
+    if db_path is None:
+        db_path = config.SONGS_DB_PATH
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
     existing_songs = []
