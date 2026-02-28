@@ -2,10 +2,13 @@
 令牌管理系統 - Token Management System
 """
 import time
+import math
+import logging
 import config
 
 # 令牌過期時間（天數）
 TOKEN_EXPIRY_DAYS = config.TOKEN_EXPIRY_DAYS
+logger = logging.getLogger(__name__)
 
 
 def logout_user(code: str) -> bool:
@@ -43,6 +46,15 @@ def validate_token(code: str) -> bool:
         user_data["created_at"] = time.time()
         save_users(users)
         return True
+
+    try:
+        created_at = float(created_at)
+        if not math.isfinite(created_at):
+            raise ValueError("created_at is not finite")
+    except (TypeError, ValueError):
+        logger.warning(f"偵測到無效 token 時間戳，已清理用戶資料 (code: {code[:8]}...)")
+        delete_user(code)
+        return False
     
     # 檢查是否超過過期時間
     expiry_time = created_at + (TOKEN_EXPIRY_DAYS * 86400)

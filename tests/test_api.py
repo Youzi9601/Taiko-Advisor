@@ -46,7 +46,7 @@ class TestLoginEndpoint:
         assert response.status_code == 401
         data = response.json()
         assert "error" in data
-        assert "error_id" in data  # ✅ 驗證 error_id 返回
+        assert "error_id" in data
 
     def test_login_with_empty_code(self, client: TestClient):
         """測試用空代碼登入"""
@@ -84,7 +84,7 @@ class TestSecurityHeaders:
         assert "Content-Security-Policy" in response.headers
         csp = response.headers["Content-Security-Policy"]
         
-        # ✅ 驗證 'unsafe-inline' 已從 script-src 中移除
+        # 驗證 'unsafe-inline' 已從 script-src 中移除
         assert "script-src 'self'" in csp
         has_script_src = "script-src" in csp
         if has_script_src:
@@ -215,3 +215,98 @@ class TestIndexPage:
         content = response.text
         assert "<!DOCTYPE html>" in content.lower() or "<html" in content.lower()
         assert "太鼓" in content or "taiko" in content.lower()
+
+
+class TestRateLimiting:
+    """速率限制測試"""
+
+    def test_chat_rate_limit_enforced(self, client: TestClient, monkeypatch):
+        """測試聊天端點在超過 10 次/分鐘時返回 429"""
+        from api.chat import route as chat_route
+
+        class FakeChunk:
+            def __init__(self, text: str):
+                self.text = text
+
+        class FakeModels:
+            @staticmethod
+            def generate_content_stream(model, contents):
+                return [FakeChunk("ok")]
+
+        class FakeClient:
+            models = FakeModels()
+
+        monkeypatch.setattr(chat_route, "validate_token", lambda code: True)
+        app.dependency_overrides[chat_route.get_client] = lambda: FakeClient()
+        app.dependency_overrides[chat_route.get_collection] = lambda: None
+        app.dependency_overrides[chat_route.get_all_songs] = lambda: []
+
+        try:
+            payload = {"message": "hello", "history": []}
+            headers = {"Authorization": "Bearer test-code"}
+            for _ in range(10):
+                response = client.post("/api/chat", json=payload, headers=headers)
+                assert response.status_code == 200
+
+            response = client.post("/api/chat", json=payload, headers=headers)
+            assert response.status_code == 429
+            data = response.json()
+            assert "error" in data
+            assert "error_id" in data
+        finally:
+            app.dependency_overrides.clear()
+
+
+class TestBearerOnlyAuth:
+    """驗證僅接受 Bearer header，不接受 body code"""
+
+    @pytest.fixture(autouse=True)
+    def reset_rate_limit_storage(self):
+        from lib.rate_limiter import limiter
+
+        limiter._storage.reset()
+        yield
+        limiter._storage.reset()
+
+    def test_profile_post_rejects_body_code_without_authorization(self, client: TestClient):
+        response = client.post(
+            "/api/profile",
+            json={
+                "code": "legacy-code",
+                "name": "玩家",
+                "level": "十段",
+                "star_pref": "9",
+                "style": "綜合",
+            },
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert "Authorization header" in data.get("error", "")
+
+    def test_sessions_post_rejects_body_code_without_authorization(self, client: TestClient):
+        response = client.post(
+            "/api/sessions",
+            json={
+                "code": "legacy-code",
+                "title": "t",
+                "messages": [{"role": "user", "content": "hello"}],
+            },
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert "Authorization header" in data.get("error", "")
+
+    def test_chat_rejects_without_authorization_even_if_body_has_code(self, client: TestClient):
+        response = client.post(
+            "/api/chat",
+            json={"message": "hello", "history": [], "code": "legacy-code"},
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert "Authorization header" in data.get("error", "")
+
+    def test_logout_rejects_without_authorization_even_if_body_has_code(self, client: TestClient):
+        response = client.post("/api/logout", json={"code": "legacy-code"})
+        assert response.status_code == 400
+        data = response.json()
+        assert "Authorization header" in data.get("error", "")

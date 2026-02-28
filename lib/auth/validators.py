@@ -36,10 +36,7 @@ def sanitize_input(text: str, max_length: int = 500) -> str:
         lines = lines[:max_lines]
         text = '\n'.join(lines)
     
-    # 移除大部分控制字符（\x00-\x09, \x0b-\x0c, \x0e-\x1f, \x7f-\x9f），其中刻意排除 \x0a，
-    # 以保留換行符 \n (\x0a)，維持多行輸入（如提示詞、程式碼片段等）的結構與可讀性。
-    # 此處已對多行內容做了基本限制（統一換行符與限制最大行數），實際使用時仍需搭配
-    # 更高層級的 Prompt Injection 防護與權限隔離。
+    # 移除控制字符，但保留換行符（\x0a）以維持多行文字結構。
     text = re.sub(r'[\x00-\x09\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', text)
     
     return text.strip()

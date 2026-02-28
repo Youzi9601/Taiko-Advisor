@@ -1,13 +1,6 @@
-"""
-對話歷史 API 路由 - /api/sessions
-
-認證方式說明：
-- GET/DELETE: 使用 Authorization header (Bearer token)
-- POST: 支援 Authorization header 或 body 中的 code 欄位（向下相容）
-"""
+"""對話歷史 API 路由。"""
 from fastapi import APIRouter, Header
 from pydantic import BaseModel
-from typing import Optional
 import uuid
 import logging
 import config
@@ -30,28 +23,22 @@ class MessageItem(BaseModel):
 
 
 class SaveSessionRequest(BaseModel):
-    code: Optional[str] = None  # 可選，優先使用 Authorization header
     title: str
     messages: list[MessageItem]
 
 
 @router.get("")
 async def get_sessions(authorization: str = Header(None)) -> dict:
-    """
-    獲取用戶所有對話歷史\n    
-    Authorization header 格式: Bearer <access_code>
-    """
+    """取得用戶所有對話（Authorization: Bearer <access_code>）。"""
     if not authorization:
         raise ValidationError("缺少 Authorization header")
     
-    # 從 Authorization header 提取 token
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise ValidationError("無效的 Authorization header 格式")
     
     code = sanitize_input(parts[1], max_length=config.ACCESS_CODE_MAX_LENGTH)
     
-    # 驗證令牌
     if not validate_token(code):
         raise AuthenticationError("無效或已過期的存取代碼")
     
@@ -61,32 +48,20 @@ async def get_sessions(authorization: str = Header(None)) -> dict:
 
 @router.post("")
 async def save_session(req: SaveSessionRequest, authorization: str = Header(None)) -> dict:
-    """
-    保存對話
+    """儲存對話（Authorization: Bearer <access_code>）。"""
+    if not authorization:
+        raise ValidationError("缺少 Authorization header")
+
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise ValidationError("無效的 Authorization header 格式")
+
+    code = sanitize_input(parts[1], max_length=config.ACCESS_CODE_MAX_LENGTH)
     
-    支援兩種認證方式（向下相容）：
-    1. Authorization header: Bearer <access_code>
-    2. Request body 中的 code 欄位
-    """
-    # 優先使用 Authorization header
-    code = None
-    if authorization:
-        parts = authorization.split()
-        if len(parts) == 2 and parts[0].lower() == "bearer":
-            code = sanitize_input(parts[1], max_length=config.ACCESS_CODE_MAX_LENGTH)
-    
-    # Fallback 到 body 中的 code（向下相容）
-    if not code and req.code:
-        code = sanitize_input(req.code, max_length=config.ACCESS_CODE_MAX_LENGTH)
-    
-    if not code:
-        raise ValidationError("缺少存取代碼")
-    
-    # 驗證令牌
     if not validate_token(code):
         raise AuthenticationError("無效或已過期的存取代碼")
     
-    # 驗證對話內容
+    # 驗證對話內容。
     title = sanitize_input(req.title, max_length=100)
     if not title:
         raise ValidationError("標題不能為空")
@@ -94,9 +69,9 @@ async def save_session(req: SaveSessionRequest, authorization: str = Header(None
     if len(req.messages) == 0:
         raise ValidationError("對話內容不能為空")
     
-    # 限制每則訊息的長度並清理輸入
+    # 清理並限制每則訊息長度。
     sanitized_messages = []
-    # 僅允許預期的 role 值，避免儲存不合法資料
+    # 僅允許預期的 role 值。
     for m in req.messages:
         sanitized_role = sanitize_input(m.role, max_length=20)
         if sanitized_role not in config.ALLOWED_MESSAGE_ROLES:
@@ -104,14 +79,14 @@ async def save_session(req: SaveSessionRequest, authorization: str = Header(None
         sanitized_content = sanitize_input(m.content, max_length=config.CHAT_MESSAGE_MAX_LENGTH)
         sanitized_messages.append({"role": sanitized_role, "content": sanitized_content})
     
-    # 檢查是否超過上限
+    # 檢查是否超過上限。
     sessions = get_user_sessions(code)
     if len(sessions) >= config.MAX_SESSIONS_PER_USER:
         raise ValidationError(
             f"已達到儲存對話數量上限 ({config.MAX_SESSIONS_PER_USER}個)，請先刪除舊的對話。"
         )
     
-    # 創建新對話
+    # 建立新對話。
     new_session = {
         "id": str(uuid.uuid4()),
         "title": title,
@@ -127,21 +102,16 @@ async def save_session(req: SaveSessionRequest, authorization: str = Header(None
 
 @router.delete("/{session_id}")
 async def delete_session_endpoint(session_id: str, authorization: str = Header(None)) -> dict:
-    """
-    刪除對話\n    
-    Authorization header 格式: Bearer <access_code>
-    """
+    """刪除對話（Authorization: Bearer <access_code>）。"""
     if not authorization:
         raise ValidationError("缺少 Authorization header")
     
-    # 從 Authorization header 提取 token
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise ValidationError("無效的 Authorization header 格式")
     
     code = sanitize_input(parts[1], max_length=config.ACCESS_CODE_MAX_LENGTH)
     
-    # 驗證令牌
     if not validate_token(code):
         raise AuthenticationError("無效或已過期的存取代碼")
     

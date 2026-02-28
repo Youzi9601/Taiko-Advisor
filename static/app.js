@@ -174,7 +174,7 @@ async function saveProfile() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${accessCode}`
             },
-            body: JSON.stringify({ code: accessCode, name, level, star_pref: starPref, style })
+            body: JSON.stringify({ name, level, star_pref: starPref, style })
         });
 
         if (res.ok) {
@@ -307,7 +307,7 @@ async function saveCurrentSession() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${accessCode}`
             },
-            body: JSON.stringify({ code: accessCode, title, messages: chatContext })
+            body: JSON.stringify({ title, messages: chatContext })
         });
 
         if (res.ok) {
@@ -389,9 +389,10 @@ async function sendMessage() {
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessCode}`
             },
-            body: JSON.stringify({ message: message, code: accessCode, history: historyToSend })
+            body: JSON.stringify({ message: message, history: historyToSend })
         });
 
         hide(typingIndicator);
@@ -451,8 +452,11 @@ function logout() {
         // 調用後端 logout 端點使令牌失效
         fetch("/api/logout", {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ code: accessCode }),
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${accessCode}`
+            },
+            body: JSON.stringify({}),
 		}).catch((e) => console.error("登出並刪除請求失敗:", e));
     } catch (e) {
         console.error("登出並刪除錯誤:", e);

@@ -1,6 +1,4 @@
-"""
-用戶數據服務模塊
-"""
+"""用戶數據服務。"""
 import os
 import json
 import time
@@ -14,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_users() -> Dict[str, Any]:
-    """載入用戶數據"""
+    """載入用戶資料。"""
     if not os.path.exists(config.USERS_DB_PATH):
         return {}
     lock_path = config.USERS_DB_PATH + ".lock"
@@ -22,13 +20,13 @@ def load_users() -> Dict[str, Any]:
         try:
             with open(config.USERS_DB_PATH, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError, OSError) as e:
             logger.error(f"讀取用戶數據失敗: {e}")
             return {}
 
 
 def save_users(users_data: Dict[str, Any]) -> None:
-    """保存用戶數據"""
+    """保存用戶資料。"""
     dir_path = os.path.dirname(config.USERS_DB_PATH)
     if dir_path:
         os.makedirs(dir_path, exist_ok=True)
@@ -50,19 +48,19 @@ def save_users(users_data: Dict[str, Any]) -> None:
 
 
 def get_user(code: str) -> Optional[Dict[str, Any]]:
-    """獲取單個用戶數據"""
+    """取得單一用戶資料。"""
     users = load_users()
     return users.get(code)
 
 
 def user_exists(code: str) -> bool:
-    """檢查用戶是否存在"""
+    """檢查用戶是否存在。"""
     users = load_users()
     return code in users
 
 
 def create_user(code: str) -> bool:
-    """創建新用戶"""
+    """建立新用戶。"""
     users = load_users()
     if code in users:
         return False
@@ -77,7 +75,7 @@ def create_user(code: str) -> bool:
 
 
 def delete_user(code: str) -> bool:
-    """刪除用戶"""
+    """刪除用戶。"""
     users = load_users()
     if code not in users:
         return False
@@ -88,7 +86,7 @@ def delete_user(code: str) -> bool:
 
 
 def update_user_profile(code: str, profile_data: dict) -> bool:
-    """更新用戶個人資料"""
+    """更新用戶個人資料。"""
     users = load_users()
     if code not in users:
         return False
@@ -99,7 +97,7 @@ def update_user_profile(code: str, profile_data: dict) -> bool:
 
 
 def get_user_profile(code: str) -> Optional[Dict[str, Any]]:
-    """獲取用戶個人資料"""
+    """取得用戶個人資料。"""
     users = load_users()
     if code not in users:
         return None
@@ -108,7 +106,7 @@ def get_user_profile(code: str) -> Optional[Dict[str, Any]]:
 
 
 def get_user_sessions(code: str) -> List[Dict[str, Any]]:
-    """獲取用戶的所有對話"""
+    """取得用戶所有對話。"""
     users = load_users()
     if code not in users:
         return []
@@ -117,7 +115,7 @@ def get_user_sessions(code: str) -> List[Dict[str, Any]]:
 
 
 def add_session(code: str, session: dict) -> bool:
-    """添加對話"""
+    """新增對話。"""
     users = load_users()
     if code not in users:
         return False
@@ -133,15 +131,23 @@ def add_session(code: str, session: dict) -> bool:
 
 
 def delete_session(code: str, session_id: str) -> bool:
-    """刪除對話"""
+    """刪除對話。"""
     users = load_users()
     if code not in users:
         return False
     
     sessions = users[code].get("chat_sessions", [])
-    new_sessions = [s for s in sessions if s["id"] != session_id]
+    if not isinstance(sessions, list):
+        logger.warning(f"用戶對話資料格式異常，無法刪除對話 (code: {code[:8]}...)")
+        return False
+
+    new_sessions = [
+        session
+        for session in sessions
+        if not (isinstance(session, dict) and session.get("id") == session_id)
+    ]
     
-    # 如果沒有任何對話被刪除，返回 False
+    # 若沒有任何對話被刪除則返回 False。
     if len(new_sessions) == len(sessions):
         return False
     

@@ -29,8 +29,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 import uvicorn
@@ -42,6 +40,7 @@ from uuid import uuid4
 import config
 from lib.dependencies import init_resources, cleanup_resources
 from lib.exceptions import TaikoAdvisorException
+from lib.rate_limiter import limiter
 from api.login.route import router as login_router
 from api.profile.route import router as profile_router
 from api.sessions.route import router as sessions_router
@@ -49,9 +48,7 @@ from api.chat.route import router as chat_router
 
 logger = logging.getLogger(__name__)
 
-# ============================================================================
 # 生命週期管理
-# ============================================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """應用程式生命週期管理"""
@@ -72,9 +69,7 @@ async def lifespan(app: FastAPI):
     cleanup_resources()
     logger.info("Taiko AI Advisor 已關閉")
 
-# ============================================================================
 # 初始化 FastAPI 應用
-# ============================================================================
 app = FastAPI(
     title=config.API_TITLE,
     description="""
@@ -99,10 +94,7 @@ app = FastAPI(
     ]
 )
 
-# ============================================================================
 # 速率限制
-# ============================================================================
-limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 
 @app.exception_handler(RateLimitExceeded)
@@ -120,9 +112,7 @@ async def rate_limit_handler(request: Request, exc: Exception) -> Response:
         media_type="application/json"
     )
 
-# ============================================================================
 # 統一異常處理
-# ============================================================================
 @app.exception_handler(TaikoAdvisorException)
 async def taiko_exception_handler(request: Request, exc: TaikoAdvisorException):
     """處理自定義異常"""
@@ -131,7 +121,7 @@ async def taiko_exception_handler(request: Request, exc: TaikoAdvisorException):
         status_code=exc.status_code,
         content={
             "error": exc.message,
-            "error_id": exc.error_id  # 返回 error_id 供客戶端日誌記錄
+            "error_id": exc.error_id
         }
     )
 
@@ -144,14 +134,12 @@ async def general_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={
             "error": "伺服器內部錯誤",
-            "error_id": error_id  # 返回 error_id 供客戶端追蹤
+            "error_id": error_id
         }
     )
 
 
-# ============================================================================
 # 安全中間件
-# ============================================================================
 class LimitRequestSizeMiddleware(BaseHTTPMiddleware):
     """限制請求體積大小"""
     async def dispatch(self, request: Request, call_next):
@@ -166,11 +154,7 @@ class LimitRequestSizeMiddleware(BaseHTTPMiddleware):
                         status_code=400,
                         content={"error": "無效的 Content-Length 標頭"}
                     )
-                # 驗證數值在合理範圍內（0 到 10MB），防止極大整數導致資源耗盡。
-                # 注意：10MB 是對 Content-Length 標頭的「安全上限」，避免客戶端宣稱極大
-                # 的請求大小而佔用過多資源；實際允許的請求體積由 config.MAX_REQUEST_SIZE
-                # 控制（目前為 1MB）。因此這裡的 10MB 僅作為合理值檢查（sanity check），
-                # 而非實際業務邏輯的大小限制。
+                # 先做標頭合理值檢查（0~10MB），再套用實際業務上限（config.MAX_REQUEST_SIZE）。
                 if not (0 <= content_length_value <= 10 * 1024 * 1024):
                     logger.warning(f"Content-Length 超出合理範圍: {content_length_value} (path: {request.url.path})")
                     return JSONResponse(
@@ -207,8 +191,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     
-    # Content-Security-Policy: 增強安全策略，使用 nonce 保護內聯腳本
-    # CDN URL 從 config 中讀取，確保與 index.html 中的引用保持一致
+    # 使用 nonce 保護內聯腳本，CDN 來源由 config 統一管理。
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         f"script-src 'self' 'nonce-{nonce}' {config.CDN_MARKED_JS} {config.CDN_DOMPURIFY_JS}; "
@@ -231,11 +214,10 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "Accept"],
 )
 
-# Trusted Host 中間件
-# 在開發環境（DEBUG=True）下停用 TrustedHostMiddleware，以支持 LAN IP、容器網域或反向代理存取
+# Trusted Host 中間件（DEBUG=True 時停用，便於開發/代理測試）
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 if not DEBUG:
-    # 允許透過環境變數 TRUSTED_HOSTS（逗號分隔）覆寫預設的可信任 Host 清單
+    # 允許透過環境變數 TRUSTED_HOSTS（逗號分隔）覆寫預設清單
     trusted_hosts_env = os.getenv("TRUSTED_HOSTS", "").strip()
     if trusted_hosts_env:
         allowed_hosts = [h.strip() for h in trusted_hosts_env.split(",") if h.strip()]
@@ -248,16 +230,12 @@ if not DEBUG:
     )
 
 
-# ============================================================================
 # 資源初始化
-# ============================================================================
 os.makedirs(config.STATIC_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=config.STATIC_DIR), name="static")
 
 
-# ============================================================================
 # 註冊 API 路由
-# ============================================================================
 # /api/login
 app.include_router(login_router, prefix="/api/login", tags=["auth"])
 
@@ -271,9 +249,7 @@ app.include_router(sessions_router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(chat_router, prefix="/api", tags=["chat"])
 
 
-# ============================================================================
 # 主頁路由
-# ============================================================================
 @app.get("/", response_class=HTMLResponse)
 async def serve_index(request: Request):
     """
@@ -302,7 +278,7 @@ async def health_check():
     collection = get_collection()
     all_songs = get_all_songs()
     
-    # 檢查所有依賴
+    # 檢查核心依賴
     checks = {
         "gemini": client is not None,
         "chromadb": collection is not None,
@@ -321,8 +297,6 @@ async def health_check():
     }
 
 
-# ============================================================================
 # 應用啟動
-# ============================================================================
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)

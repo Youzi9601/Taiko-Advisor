@@ -8,8 +8,10 @@
 """
 from lib.services.user_service import (
     load_users, get_user_profile, update_user_profile,
-    user_exists, get_user_sessions, create_user, delete_user
+    user_exists, get_user_sessions, create_user, delete_user, save_users, delete_session
 )
+from lib.auth.token_manager import validate_token
+import config
 
 
 class TestUserServiceBasic:
@@ -77,3 +79,44 @@ class TestUserServiceDataIntegrity:
             # 確保清理測試用戶以防止測試污染
             if user_exists(test_code):
                 delete_user(test_code)
+
+
+class TestUserServiceEdgeCases:
+    """用戶服務邊界條件測試"""
+
+    def test_validate_token_with_malformed_created_at(self, temp_db_path, monkeypatch):
+        """測試 created_at 格式錯誤時不應拋例外且會清除無效用戶"""
+        monkeypatch.setattr(config, "USERS_DB_PATH", temp_db_path)
+        save_users(
+            {
+                "bad_token_user": {
+                    "created_at": "invalid_timestamp",
+                    "profile": None,
+                    "chat_sessions": [],
+                }
+            }
+        )
+
+        assert validate_token("bad_token_user") is False
+        assert user_exists("bad_token_user") is False
+
+    def test_delete_session_with_malformed_session_entries(self, temp_db_path, monkeypatch):
+        """測試刪除對話時遇到缺少 id 的資料不應觸發 KeyError"""
+        monkeypatch.setattr(config, "USERS_DB_PATH", temp_db_path)
+        save_users(
+            {
+                "session_user": {
+                    "created_at": 1700000000,
+                    "profile": None,
+                    "chat_sessions": [
+                        {"title": "missing-id"},
+                        {"id": "target-id", "title": "to-delete"},
+                    ],
+                }
+            }
+        )
+
+        assert delete_session("session_user", "target-id") is True
+        remaining_sessions = get_user_sessions("session_user")
+        assert len(remaining_sessions) == 1
+        assert remaining_sessions[0].get("title") == "missing-id"

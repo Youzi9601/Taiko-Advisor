@@ -80,6 +80,42 @@ python server.py
 - 建議使用隨機字串作為存取代碼以提高安全性
 - 歌曲資料庫 (`data/songs.json`)、向量快取 (`chroma_db`) 以及使用者設定 (`data/users.json`) 不包含在版本控制中，需要自行建立
 
+### API 認證規格（重要）
+
+- `POST /api/login`：使用 request body 傳入 `code`。
+- 受保護端點（`/api/profile`、`/api/sessions`、`/api/chat`、`/api/logout`）：
+  僅接受 `Authorization: Bearer <access_code>`。
+- 這些受保護端點不支援在 request body 傳入 `code` 作為認證。
+
+```bash
+# 1) 登入
+curl -X POST http://localhost:8000/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"code":"YOUR_ACCESS_CODE"}'
+
+# 2) 呼叫受保護端點（以 chat 為例）
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_CODE" \
+  -d '{"message":"推薦一首 8 星鬼譜面","history":[]}'
+```
+
+### 401/400 常見認證錯誤對照表
+
+| HTTP 狀態碼 | 常見錯誤訊息 | 可能原因 | 建議處理方式 |
+|---|---|---|---|
+| 400 | 缺少 Authorization header | 呼叫受保護端點時未帶 `Authorization` | 加上 `Authorization: Bearer <access_code>` |
+| 400 | 無效的 Authorization header 格式 | Header 不是 `Bearer <token>` 格式（例如少空白、拼錯 Bearer） | 修正為標準格式並重試 |
+| 400 | 存取代碼不能為空 / 訊息不能為空 | 請求 body 必填欄位缺失或為空 | 檢查 JSON payload 必填欄位 |
+| 401 | 無效的存取代碼 | login 時代碼不存在於 `data/users.json` | 確認代碼在白名單內 |
+| 401 | 無效或已過期的存取代碼 | token 已過期、已失效或資料已被清理 | 重新登入並取得可用代碼 |
+| 401 | 用戶不存在 | logout 或其他流程使用了不存在的代碼 | 確認代碼正確，必要時重新建立使用者 |
+
+> 排錯建議：
+> 1. 先確認是否為受保護端點（除了 `/api/login` 之外都需要 Bearer）。
+> 2. 再檢查 Header 格式是否為 `Authorization: Bearer <access_code>`。
+> 3. 最後確認 `data/users.json` 中代碼是否存在且未過期。
+
 ### 開發命令
 
 ```bash

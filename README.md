@@ -40,6 +40,28 @@ api/
 └── chat/route.py              # POST /api/chat, /api/logout - 聊天與登出
 ```
 
+## 🔐 API 認證規格
+
+- `POST /api/login`：使用 request body 傳入 `code`。
+- 其餘受保護端點（`/api/profile`、`/api/sessions`、`/api/chat`、`/api/logout`）：
+	僅接受 `Authorization: Bearer <access_code>`。
+- 不再支援於 request body 傳入 `code` 作為這些端點的認證方式。
+
+### 請求範例
+
+```bash
+# 1) 登入（取得/驗證 access code）
+curl -X POST http://127.0.0.1:8000/api/login \
+	-H "Content-Type: application/json" \
+	-d '{"code":"YOUR_ACCESS_CODE"}'
+
+# 2) 受保護端點（以 chat 為例）
+curl -X POST http://127.0.0.1:8000/api/chat \
+	-H "Content-Type: application/json" \
+	-H "Authorization: Bearer YOUR_ACCESS_CODE" \
+	-d '{"message":"推薦一首 8 星鬼譜面","history":[]}'
+```
+
 ### 前端與資料
 - `static/`: HTML / CSS / JS 前端介面
 - `data/`: 歌曲庫 (`songs.json`) 與使用者帳戶 (`users.json`)
