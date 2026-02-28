@@ -1,7 +1,7 @@
 """
 對話歷史 API 路由 - /api/sessions
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import uuid
@@ -29,11 +29,20 @@ class SaveSessionRequest(BaseModel):
 
 
 @router.get("")
-async def get_sessions(code: str):
+async def get_sessions(authorization: str = Header(None)):
     """
-    獲取用戶所有對話歷史
+    獲取用戶所有對話歷史\n    
+    Authorization header 格式: Bearer <access_code>
     """
-    code = sanitize_input(code, max_length=config.ACCESS_CODE_MAX_LENGTH)
+    if not authorization:
+        return JSONResponse(status_code=401, content={"error": "缺少 Authorization header"})
+    
+    # 從 Authorization header 提取 token
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return JSONResponse(status_code=401, content={"error": "無效的 Authorization header 格式"})
+    
+    code = sanitize_input(parts[1], max_length=config.ACCESS_CODE_MAX_LENGTH)
     
     # 驗證令牌
     if not validate_token(code):
@@ -84,11 +93,20 @@ async def save_session(req: SaveSessionRequest):
 
 
 @router.delete("/{session_id}")
-async def delete_session_endpoint(session_id: str, code: str):
+async def delete_session_endpoint(session_id: str, authorization: str = Header(None)):
     """
-    刪除對話
+    刪除對話\n    
+    Authorization header 格式: Bearer <access_code>
     """
-    code = sanitize_input(code, max_length=config.ACCESS_CODE_MAX_LENGTH)
+    if not authorization:
+        return JSONResponse(status_code=401, content={"error": "缺少 Authorization header"})
+    
+    # 從 Authorization header 提取 token
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return JSONResponse(status_code=401, content={"error": "無效的 Authorization header 格式"})
+    
+    code = sanitize_input(parts[1], max_length=config.ACCESS_CODE_MAX_LENGTH)
     
     # 驗證令牌
     if not validate_token(code):

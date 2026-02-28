@@ -5,6 +5,7 @@ import json
 import random
 from typing import Optional
 import chromadb
+import config
 from lib.auth.validators import sanitize_input
 
 
@@ -16,8 +17,8 @@ def get_candidate_songs(message: str, collection: Optional[chromadb.Collection] 
     
     if collection:
         try:
-            # 進行語意查詢，取出前30筆
-            results = collection.query(query_texts=[message], n_results=30)
+            # 進行語意查詢，取出前 N 筆
+            results = collection.query(query_texts=[message], n_results=config.CHROMA_QUERY_LIMIT)
             if results and results["metadatas"] and len(results["metadatas"][0]) > 0:
                 for meta in results["metadatas"][0]:
                     json_data = meta.get("json")
@@ -32,7 +33,7 @@ def get_candidate_songs(message: str, collection: Optional[chromadb.Collection] 
     
     # Fallback 機制
     if not candidate_songs and all_songs:
-        candidate_songs = random.sample(all_songs, min(15, len(all_songs)))
+        candidate_songs = random.sample(all_songs, min(config.FALLBACK_SONGS_COUNT, len(all_songs)))
     
     return candidate_songs
 

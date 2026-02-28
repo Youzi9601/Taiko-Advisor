@@ -81,10 +81,13 @@ app.add_middleware(
 )
 
 # Trusted Host 中間件
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=config.TRUSTED_HOSTS if hasattr(config, 'TRUSTED_HOSTS') else ["localhost", "127.0.0.1"]
-)
+# 在開發環境（DEBUG=True）下停用 TrustedHostMiddleware，以支持 LAN IP、容器網域或反向代理存取
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+if not DEBUG:
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=config.TRUSTED_HOSTS
+    )
 
 
 # ============================================================================
