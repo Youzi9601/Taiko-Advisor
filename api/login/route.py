@@ -28,12 +28,12 @@ async def login(req: LoginRequest):
     
     users = load_users()
     
-    # 如果用戶不存在，創建新用戶
+    # 如果用戶不存在，回傳未授權錯誤以維持白名單機制
     if code not in users:
-        create_user(code)
-        users = load_users()
+        return JSONResponse(status_code=401, content={"error": "無效的存取代碼"})
     
     user_data = users[code]
+    
     
     # 檢查令牌是否已過期
     created_at = user_data.get("created_at")
