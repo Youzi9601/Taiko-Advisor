@@ -5,15 +5,24 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import random
+import logging
 from google import genai
 from google.genai import types
 import config
 
+# 配置日誌
+logger = logging.getLogger(__name__)
+
 if not config.GEMINI_API_KEY:
-    print("請先在 .env 設定 GEMINI_API_KEY")
+    logger.error("❌ GEMINI_API_KEY 未設置，程式終止")
     exit(1)
 
-client = genai.Client(api_key=config.GEMINI_API_KEY)
+try:
+    client = genai.Client(api_key=config.GEMINI_API_KEY)
+    logger.info("✅ Gemini 客戶端初始化成功")
+except Exception as e:
+    logger.error(f"❌ Gemini 客戶端初始化失敗: {e}")
+    exit(1)
 
 
 def load_songs():
@@ -70,9 +79,10 @@ def fetch_details(url):
                     strategy_text = ul.get_text(separator="\n", strip=True)
                 break
 
+        logger.debug(f"成功抓取詳細頁: max_combo={max_combo}, strategy_length={len(strategy_text)}")
         return max_combo, strategy_text
     except Exception as e:
-        print(f"Fetch failed for {url}: {e}")
+        logger.error(f"❌ 詳細頁抓取失敗 ({url}): {e}")
         return 0, ""
 
 
@@ -89,17 +99,30 @@ def generate_ai_tags(strategy_text):
         out = f"{response.text}"
         tags_str = out.replace("，", ",").strip()
         tags = [t.strip() for t in tags_str.split(",") if t.strip()]
+        logger.debug(f"AI 萃取標籤: {tags[:4]}")
         return tags[:4]
     except Exception as e:
-        print(f"Gemini API 發生錯誤: {e}")
+        logger.error(f"❌ Gemini API 調用失敗: {e}")
         return ["API錯誤"]
 
 
 def get_bpm_tag(bpm_val):
+    """
+    根據 BPM 值返回對應的速度標籤
+    
+    返回值:
+    - 低BPM: 低於 160
+    - 一般速度: 160-220
+    - 高BPM: 220-260
+    - 超高BPM: 260 及以上
+    - None: 無法解析
+    """
     try:
         nums = re.findall(r"\d+(?:\.\d+)?", str(bpm_val))
         if not nums:
+            logger.debug(f"BPM 無法解析: {bpm_val}")
             return None
+        
         max_b = max(float(n) for n in nums)
 
         if max_b < 160:
@@ -110,7 +133,8 @@ def get_bpm_tag(bpm_val):
             return "高BPM"
         elif max_b >= 260:
             return "超高BPM"
-    except (ValueError, TypeError):
+    except (ValueError, TypeError) as e:
+        logger.debug(f"BPM 解析例外 (值: {bpm_val}): {e}")
         return None
     return None
 
@@ -118,9 +142,10 @@ def get_bpm_tag(bpm_val):
 def main():
     songs = load_songs()
     if not songs:
-        print("沒有找到歌曲資料！")
+        logger.error("❌ 沒有找到歌曲資料！")
         return
 
+    logger.info(f"開始處理 {len(songs)} 首歌曲...")
     updated_count = 0
 
     for i, song in enumerate(songs):
@@ -140,12 +165,14 @@ def main():
 
         # 如果有詳細頁網址且尚未抓取攻略內文 或 combo為0
         if song.get("detail_url") and needs_fetch:
-            print(f"[{i}/{len(songs)}] 正在重新抓取詳細頁: {song['title']}")
+            logger.info(f"[{i+1}/{len(songs)}] 正在重新抓取詳細頁: {song['title']}")
             combo, strategy = fetch_details(song["detail_url"])
             if combo > 0:
                 song["max_combo"] = combo
+                logger.debug(f"  ✓ 抓取 max_combo: {combo}")
             if strategy:
                 song["strategy_text"] = strategy
+                logger.debug(f"  ✓ 抓取攻略內文: {len(strategy)} 字元")
             changed = True
             time.sleep(random.uniform(0.5, 1.5))  # 禮貌性爬蟲延遲
 
@@ -157,15 +184,15 @@ def main():
 
             # [USER RULE] 若文本過短，不呼叫 API，直接標註人工處理
             if len(strategy_text) < 50:
-                print(
-                    f"[{i}/{len(songs)}] 文本過短 ({len(strategy_text)} 字)，標註 [人工處理]: {song['title']}"
+                logger.info(
+                    f"[{i+1}/{len(songs)}] 文本過短 ({len(strategy_text)} 字)，標註 [人工處理]: {song['title']}"
                 )
                 if "人工處理" not in curr_features:
                     curr_features.append("人工處理")
                 song["features"] = curr_features
                 changed = True
             else:
-                print(f"[{i}/{len(songs)}] 送出予 Gemini 萃取標籤: {song['title']}")
+                logger.info(f"[{i+1}/{len(songs)}] 送出予 Gemini 萃取標籤: {song['title']}")
                 tags = generate_ai_tags(strategy_text)
 
                 new_features = list(curr_features)
@@ -181,21 +208,22 @@ def main():
                     new_features.append(bpm_tag)
 
                 song["features"] = new_features
+                logger.debug(f"  ✓ 新增標籤: {new_features}")
                 changed = True
 
         if changed:
             updated_count += 1
             # 每處理 10 首就存檔一次，確保斷點續傳機制
             if updated_count % 10 == 0:
-                print(f"已處理 {updated_count} 首，自動存檔中...")
+                logger.info(f"✅ 已處理 {updated_count} 首，自動存檔中...")
                 save_songs(songs)
 
     # 最終存檔
     if updated_count > 0:
         save_songs(songs)
-        print(f"處理完成！共更新了 {updated_count} 首歌曲。")
+        logger.info(f"✅ 處理完成！共更新了 {updated_count} 首歌曲。")
     else:
-        print("所有歌曲皆已處理完畢，無需更新。")
+        logger.info("ℹ️ 所有歌曲皆已處理完畢，無需更新。")
 
 
 if __name__ == "__main__":

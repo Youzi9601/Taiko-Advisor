@@ -3,13 +3,20 @@
 """
 import json
 import random
-from typing import Optional
+import logging
+from typing import Optional, List, Dict, Any
 import chromadb
 import config
 from lib.auth.validators import sanitize_input
 
+logger = logging.getLogger(__name__)
 
-def get_candidate_songs(message: str, collection: Optional[chromadb.Collection] = None, all_songs: Optional[list] = None) -> list:
+
+def get_candidate_songs(
+    message: str, 
+    collection: Optional[chromadb.Collection] = None, 
+    all_songs: Optional[List[Dict[str, Any]]] = None
+) -> List[Dict[str, Any]]:
     """
     獲取候選歌曲列表
     """
@@ -29,16 +36,17 @@ def get_candidate_songs(message: str, collection: Optional[chromadb.Collection] 
                     if song_obj:
                         candidate_songs.append(song_obj)
         except Exception as e:
-            print(f"ChromaDB 查詢發生錯誤: {e}")
+            logger.error(f"ChromaDB 查詢發生錯誤: {e}")
     
     # Fallback 機制
     if not candidate_songs and all_songs:
         candidate_songs = random.sample(all_songs, min(config.FALLBACK_SONGS_COUNT, len(all_songs)))
+        logger.warning(f"使用 Fallback 機制，隨機選取 {len(candidate_songs)} 首歌")
     
     return candidate_songs
 
 
-def build_profile_context(profile: Optional[dict] = None) -> str:
+def build_profile_context(profile: Optional[Dict[str, Any]] = None) -> str:
     """
     構建玩家實力上下文文本
     """
@@ -58,7 +66,7 @@ def build_profile_context(profile: Optional[dict] = None) -> str:
 """
 
 
-def build_history_context(history: list) -> str:
+def build_history_context(history: List[Any]) -> str:
     """
     構建對話歷史上下文文本
     """

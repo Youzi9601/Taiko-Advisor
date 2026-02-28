@@ -2,15 +2,38 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
 # Databases & Datasets
 data/
 chroma_db/
+
 # Environments
 .env
 .env.*
 !.env.example
+
 .venv/
 venv/
 env/
+
 # Mac
 .DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+tests/logs/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+
+# Logs
+logs/
+*.log
+

@@ -5,11 +5,15 @@ import os
 import json
 import time
 import tempfile
+import logging
+from typing import Optional, Dict, List, Any
 from filelock import FileLock
 import config
 
+logger = logging.getLogger(__name__)
 
-def load_users():
+
+def load_users() -> Dict[str, Any]:
     """載入用戶數據"""
     if not os.path.exists(config.USERS_DB_PATH):
         return {}
@@ -18,11 +22,12 @@ def load_users():
         try:
             with open(config.USERS_DB_PATH, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            logger.error(f"讀取用戶數據失敗: {e}")
             return {}
 
 
-def save_users(users_data):
+def save_users(users_data: Dict[str, Any]) -> None:
     """保存用戶數據"""
     dir_path = os.path.dirname(config.USERS_DB_PATH)
     if dir_path:
@@ -41,9 +46,10 @@ def save_users(users_data):
             tmp_path = tmp_file.name
 
         os.replace(tmp_path, config.USERS_DB_PATH)
+        logger.debug("用戶數據已保存")
 
 
-def get_user(code: str):
+def get_user(code: str) -> Optional[Dict[str, Any]]:
     """獲取單個用戶數據"""
     users = load_users()
     return users.get(code)
@@ -92,7 +98,7 @@ def update_user_profile(code: str, profile_data: dict) -> bool:
     return True
 
 
-def get_user_profile(code: str):
+def get_user_profile(code: str) -> Optional[Dict[str, Any]]:
     """獲取用戶個人資料"""
     users = load_users()
     if code not in users:
@@ -101,7 +107,7 @@ def get_user_profile(code: str):
     return users[code].get("profile")
 
 
-def get_user_sessions(code: str):
+def get_user_sessions(code: str) -> List[Dict[str, Any]]:
     """獲取用戶的所有對話"""
     users = load_users()
     if code not in users:

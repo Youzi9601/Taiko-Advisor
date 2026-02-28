@@ -142,7 +142,10 @@ async function saveProfile() {
     try {
         const res = await fetch('/api/profile', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessCode}`
+            },
             body: JSON.stringify({ code: accessCode, name, level, star_pref: starPref, style })
         });
 
@@ -272,7 +275,10 @@ async function saveCurrentSession() {
     try {
         const res = await fetch('/api/sessions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessCode}`
+            },
             body: JSON.stringify({ code: accessCode, title, messages: chatContext })
         });
 

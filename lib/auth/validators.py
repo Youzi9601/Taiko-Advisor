@@ -6,10 +6,16 @@ import re
 
 def sanitize_input(text: str, max_length: int = 500) -> str:
     """
-    驗證和清理用戶輸入，防止 Prompt Injection 攻擊
+    驗證和清理用戶輸入的基礎函數。
+    
+    功能：
     - 限制長度
     - 移除控制字符
-    - 驗證編碼
+    - 壓縮過多的換行
+    
+    注意：這個函數只能做一般性的輸入清理，無法單獨「防止」或「抵禦」
+    Prompt Injection 等複雜攻擊場景，實際使用時仍需搭配嚴謹的系統設計、
+    權限隔離與模型提示設計等其他安全措施。
     """
     if not text or not isinstance(text, str):
         return ""

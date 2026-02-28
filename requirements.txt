@@ -2,9 +2,14 @@ python-dotenv==1.0.1
 requests
 beautifulsoup4
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
 chromadb
 sentence-transformers
 google-genai
 filelock
+slowapi
+pytest
+pytest-cov
+pytest-asyncio
+httpx

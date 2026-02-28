@@ -5,10 +5,14 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import time
+import logging
 import config
+from lib.auth import validate_token
 from lib.auth.validators import sanitize_input
-from lib.services.user_service import load_users, save_users, create_user
+from lib.services.user_service import load_users, save_users
+from lib.exceptions import AuthenticationError, ValidationError
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -17,36 +21,34 @@ class LoginRequest(BaseModel):
 
 
 @router.post("")
-async def login(req: LoginRequest):
+async def login(req: LoginRequest) -> dict:
     """
     用戶登入端點
     """
     # 驗證 access code
     code = sanitize_input(req.code, max_length=config.ACCESS_CODE_MAX_LENGTH)
     if not code:
-        return JSONResponse(status_code=400, content={"error": "存取代碼不能為空"})
+        raise ValidationError("存取代碼不能為空")
     
     users = load_users()
     
     # 如果用戶不存在，回傳未授權錯誤以維持白名單機制
     if code not in users:
-        return JSONResponse(status_code=401, content={"error": "無效的存取代碼"})
+        logger.warning(f"嘗試登入不存在的用戶 (code: {code[:8]}...)")
+        raise AuthenticationError("無效的存取代碼")
     
-    user_data = users[code]
+    # 使用集中式的 token 驗證（會自動處理過期檢查和清理）
+    if not validate_token(code):
+        logger.warning(f"用戶 token 已過期 (code: {code[:8]}...)")
+        raise AuthenticationError("存取代碼已過期，請重新申請")
     
+    # 重新讀取以獲取 validate_token 可能更新的數據
+    users = load_users()
+    user_data = users.get(code)
+    if not user_data:
+        raise AuthenticationError("無效的存取代碼")
     
-    # 檢查令牌是否已過期
-    created_at = user_data.get("created_at")
-    if created_at is None:
-        user_data["created_at"] = time.time()
-        save_users(users)
-    else:
-        expiry_time = created_at + (config.TOKEN_EXPIRY_DAYS * 86400)
-        if time.time() > expiry_time:
-            # 存取代碼已過期，刪除用戶資料以便未來可重新登入
-            users.pop(code, None)
-            save_users(users)
-            return JSONResponse(status_code=401, content={"error": "存取代碼已過期，請重新申請"})
+    logger.info(f"用戶登入成功 (code: {code[:8]}...)")
     
     # 回傳是否需要填寫 profile
     needs_profile = user_data.get("profile") is None
