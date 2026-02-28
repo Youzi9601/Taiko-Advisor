@@ -165,7 +165,7 @@ def main():
                 song["features"] = curr_features
                 changed = True
             else:
-                print(f"[{i}/{len(songs)}] 送出予 Qwen 萃取標籤: {song['title']}")
+                print(f"[{i}/{len(songs)}] 送出予 Gemini 萃取標籤: {song['title']}")
                 tags = generate_ai_tags(strategy_text)
 
                 new_features = list(curr_features)
