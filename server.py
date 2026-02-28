@@ -125,7 +125,8 @@ app.include_router(chat_router, prefix="/api", tags=["chat"])
 async def serve_index():
     """提供前端 HTML"""
     try:
-        with open("static/index.html", "r", encoding="utf-8") as f:
+        index_path = os.path.join(config.STATIC_DIR, "index.html")
+        with open(index_path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         return "<h1>找不到 index.html 檔案</h1>"
