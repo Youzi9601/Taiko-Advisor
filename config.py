@@ -1,16 +1,23 @@
 """Taiko AI Advisor 配置檔案"""
 
 import os
+import logging
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
-SONGS_DB_PATH = os.getenv("SONGS_DB_PATH", "data/songs.json")
-USERS_DB_PATH = os.getenv("USERS_DB_PATH", "data/users.json")
-
-CHROMA_DB_PATH = os.path.join(os.path.dirname(SONGS_DB_PATH), "chroma_db")
+# ============================================================================
+# 路徑配置（使用絕對路徑以避免問題）
+# ============================================================================
+SONGS_DB_PATH = os.path.abspath(os.getenv("SONGS_DB_PATH", "data/songs.json"))
+USERS_DB_PATH = os.path.abspath(os.getenv("USERS_DB_PATH", "data/users.json"))
+CHROMA_DB_PATH = os.path.abspath(os.getenv("CHROMA_DB_PATH", "data/chroma_db"))
 CHROMA_COLLECTION_NAME = "taiko_songs"
 
+# ============================================================================
+# API 金鑰
+# ============================================================================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 HTTP_HEADERS = {
@@ -31,14 +38,17 @@ CORS_ORIGINS = [
 
 TRUSTED_HOSTS = ["localhost", "127.0.0.1"]
 
-TOKEN_EXPIRY_DAYS = 7
-MAX_SESSIONS_PER_USER = 3
+TOKEN_EXPIRY_DAYS = int(os.getenv("TOKEN_EXPIRY_DAYS", "7"))
+MAX_SESSIONS_PER_USER = int(os.getenv("MAX_SESSIONS_PER_USER", "3"))
 
 CHAT_MESSAGE_MAX_LENGTH = 500
 USER_NAME_MAX_LENGTH = 50
 ACCESS_CODE_MAX_LENGTH = 100
 CHROMA_QUERY_LIMIT = 30
 FALLBACK_SONGS_COUNT = 15
+
+# 請求大小限制（1MB）
+MAX_REQUEST_SIZE = 1024 * 1024
 
 # ============================================================================
 # 太鼓之達人歌曲類別配置
@@ -95,3 +105,61 @@ TAG_GENERATION_PROMPT_TEMPLATE = """請閱讀以下「太鼓之達人」的歌�
 【攻略內容】：
 {strategy_text}
 """
+
+# ============================================================================
+# 日誌配置
+# ============================================================================
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+LOG_DIR = "logs"
+
+# 確保日誌目錄存在
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# 配置日誌
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(os.path.join(LOG_DIR, 'taiko_advisor.log'), encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+
+# ============================================================================
+# 配置驗證
+# ============================================================================
+def validate_config():
+    """驗證必要的配置項"""
+    errors = []
+    warnings = []
+    
+    # 檢查 API Key
+    if not GEMINI_API_KEY:
+        errors.append("⚠️ GEMINI_API_KEY 未設置，聊天功能將無法使用")
+    
+    # 檢查歌曲資料庫
+    if not os.path.exists(SONGS_DB_PATH):
+        warnings.append(f"⚠️ 找不到歌曲資料庫: {SONGS_DB_PATH}")
+    
+    # 檢查 ChromaDB
+    if not os.path.exists(CHROMA_DB_PATH):
+        warnings.append(f"⚠️ 找不到 ChromaDB: {CHROMA_DB_PATH}")
+    
+    # 輸出錯誤和警告
+    if errors:
+        error_msg = "配置錯誤：\n" + "\n".join(f"  - {e}" for e in errors)
+        raise ValueError(error_msg)
+    
+    if warnings:
+        logger = logging.getLogger(__name__)
+        for warning in warnings:
+            logger.warning(warning)
+
+# 在開發模式下驗證配置
+if os.getenv("VALIDATE_CONFIG", "true").lower() == "true":
+    try:
+        validate_config()
+    except ValueError as e:
+        # 在導入時就拐出異常，但先警告
+        logging.getLogger(__name__).error(str(e))
+        # 不直接中斷，讓應用繼續啟動，但記錄錯誤

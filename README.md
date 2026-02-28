@@ -22,8 +22,8 @@
 ```
 lib/
 ├── auth/
-│   ├── token_manager.py      # 令牌生命週期管理（過期驗證）
-│   └── validators.py          # 輸入驗證與消毒（防注入）
+│   ├── token_manager.py      # 令牌生命週期管理（過期驗證、登出）
+│   └── validators.py          # 輸入驗證與清理
 ├── services/
 │   ├── user_service.py        # 用戶數據操作（CRUD）
 │   └── chat_service.py        # 聊天上下文構建與提示詞生成
@@ -44,71 +44,56 @@ api/
 - `static/`: HTML / CSS / JS 前端介面
 - `data/`: 歌曲庫 (`songs.json`) 與使用者帳戶 (`users.json`)
 
-## 🚀 佈署與啟動指南
+## 🚀 快速開始
 
-為了保護使用者隱私與資料庫運作效能，本專案的歌曲來源資料庫 (`data/songs.json`)、向量快取 (`chroma_db`) 以及使用者設定 (`data/users.json`) **不會包含在開源版本庫中**，你必須自己抓取與建立。
+### 基本需求
+- Python 3.10+
+- Gemini API Key
+- Git
 
-### 步驟 1：安裝套件與環境
+### 快速安裝
+
 ```bash
-git clone <本專案網址>
-cd taiko_ai
+# 1. 克隆專案
+git clone https://github.com/NatsuYukiowob/Taiko-Advisor.git
+cd Taiko-Advisor
 
-# 建議使用虛擬環境
+# 2. 創建虛擬環境並安裝依賴
 python -m venv .venv
-
-# macOS / Linux
-source .venv/bin/activate
 # Windows (PowerShell)
 .venv\Scripts\Activate.ps1
-# Windows (CMD)
-.venv\Scripts\activate.bat
+# macOS/Linux
+source .venv/bin/activate
 
 pip install -r requirements.txt
-```
 
-### 步驟 2：設定 API 授權金鑰
-複製環境變數範例檔，並填入你的 Gemini API Key：
-```bash
+# 3. 設定 API Key
 cp .env.example .env
-```
-*(請將你的 `GEMINI_API_KEY` 填入 `.env` 檔案中)*
+# 編輯 .env 並填入 GEMINI_API_KEY
 
-### 步驟 3：[第一次佈署必做] 初始化資料庫
-請確保留定足夠的時間讓程式透過網路抓取與分析資料：
-```bash
-# 1. 爬取原始歌曲與最大連擊數: (需時約幾分鐘)
+# 4. 初始化數據庫（首次部署必做）
 python scraper.py
-
-# 2. 呼叫 Gemini AI 精煉歌曲特色標籤 (有中斷接續機制):
 python generate_tags.py
-
-# 3. 嵌入 ChromaDB 語意向量庫:
 python init_chroma.py
-```
 
-### 步驟 4：設定管理員與使用者帳號
-為了控制誰可以使用你的 AI，系統採用白名單存取代碼機制。
-請手動在 `data/` 資料夾中建立一份 `users.json`，格式如下：
-```json
-{
-  "YOUR_SECRET_ACCESS_CODE_1": {
-    "profile": null,
-    "chat_sessions": []
-  },
-  "YOUR_SECRET_ACCESS_CODE_2": {
-    "profile": null,
-    "chat_sessions": []
-  }
-}
-```
-*把 `YOUR_SECRET_ACCESS_CODE` 替換成你要分發給朋友的密碼。當他們初次登入時，profile 就會自動建立。*
+# 5. 創建 data/users.json（見部署指南）
 
-### 步驟 5：啟動伺服器
-```bash
+# 6. 啟動伺服器
 python server.py
-# 或使用 uvicorn 正式運行：uvicorn server:app --host 0.0.0.0 --port 8000
 ```
-現在打開瀏覽器前往 `http://127.0.0.1:8000` 即可開始玩囉！
+
+訪問 `http://127.0.0.1:8000` 開始使用！
+
+### 📖 詳細文檔
+
+**重要提示：** 本專案的歌曲資料庫 (`data/songs.json`)、向量快取 (`chroma_db`) 以及使用者設定 (`data/users.json`) 不包含在版本控制中，需要自行建立。
+
+完整的部署說明、Docker 配置、生產環境設定等詳見：
+- **[部署指南 (DEPLOYMENT_GUIDE.md)](DEPLOYMENT_GUIDE.md)** - 完整的安裝與配置步驟
+- **本地開發環境** - 詳細的開發環境設置
+- **Docker 部署** - 容器化部署方案
+- **生產環境配置** - Nginx、SSL、Systemd 等配置
+- **性能優化與監控** - 最佳實踐與故障排除
 
 ## 👨‍💻 技術堆疊
 * **Backend:** FastAPI, Python
