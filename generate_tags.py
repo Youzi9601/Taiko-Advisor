@@ -163,9 +163,10 @@ def main():
 
         needs_fetch = "strategy_text" not in song or (song.get("max_combo", 0) == 0)
 
-        # 如果有詳細頁網址且尚未抓取攻略內文 或 combo為0
+
         if song.get("detail_url") and needs_fetch:
-            logger.info(f"[{i+1}/{len(songs)}] 正在重新抓取詳細頁: {song['title']}")
+            logger.info("[%d/%d] 正在重新抓取詳細頁: %s", i + 1, len(songs), song["title"])
+            logger.debug("詳細頁網址: %s", song.get("detail_url", "N/A"))
             combo, strategy = fetch_details(song["detail_url"])
             if combo > 0:
                 song["max_combo"] = combo

@@ -702,3 +702,50 @@ body {
         max-width: 100%;
     }
 }
+
+/* ============================================================================
+   Utility Classes for Replacing Inline Styles
+   ============================================================================ */
+
+/* Header layout for saved sessions */
+.sessions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.sessions-header h3 {
+    font-size: 14px;
+    color: #9ece6a;
+    margin: 0;
+}
+
+/* Sidebar footer layout */
+.sidebar-footer {
+    margin-top: auto;
+    padding-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Hidden by default */
+.hidden {
+    display: none !important;
+}
+
+/* Profile modal button layout */
+.profile-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.profile-buttons button {
+    flex: 1;
+}
+
+.profile-buttons .cancel-btn {
+    background: #3b4261;
+}

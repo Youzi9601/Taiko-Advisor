@@ -17,8 +17,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 複製應用代碼
 COPY . .
 
-# 創建必要的目錄
-RUN mkdir -p logs data
+# 創建非 root 用戶以提高安全性
+RUN useradd -m -u 1000 -s /bin/bash appuser && \
+    mkdir -p logs data && \
+    chown -R appuser:appuser /app
+
+# 將應用日誌和數據目錄設置為可持久化卷
+VOLUME ["/app/logs", "/app/data"]
+# 切換到非 root 用戶
+USER appuser
 
 # 公開端口
 EXPOSE 8000

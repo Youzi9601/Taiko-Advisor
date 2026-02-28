@@ -4,7 +4,9 @@ API 端點集成測試
 使用 TestClient 測試各個 API 端點的功能。
 """
 import pytest
+from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
+from slowapi.errors import RateLimitExceeded
 from server import app
 
 
@@ -57,7 +59,7 @@ class TestLoginEndpoint:
     def test_login_missing_code_field(self, client: TestClient):
         """測試缺少代碼字段的登入"""
         response = client.post("/api/login", json={})
-        assert response.status_code in [400, 422]  # FastAPI 驗證錯誤
+        assert response.status_code in [400, 422]  # 驗證錯誤（依實作可能為 400 或 422）
 
 
 class TestSecurityHeaders:
@@ -84,7 +86,10 @@ class TestSecurityHeaders:
         
         # ✅ 驗證 'unsafe-inline' 已從 script-src 中移除
         assert "script-src 'self'" in csp
-        assert "unsafe-inline" not in csp.split("script-src")[1].split(";")[0] if "script-src" in csp else True
+        has_script_src = "script-src" in csp
+        if has_script_src:
+            script_src_directive = csp.split("script-src", 1)[1].split(";", 1)[0]
+            assert "unsafe-inline" not in script_src_directive
 
     def test_csp_nonce_present(self, client: TestClient):
         """測試 CSP 中是否包含 nonce"""
@@ -97,11 +102,54 @@ class TestSecurityHeaders:
 class TestErrorHandling:
     """錯誤處理測試"""
     
-    def test_rate_limit_error_includes_error_id(self, client: TestClient):
-        """測試速率限制錯誤包含 error_id（如果觸發）"""
-        # ⚠️ 注意：此測試假設速率限制設定為較低的值
-        # 在實際環境中，可能無法在測試期間達到該限制
-        pass
+    def test_rate_limit_error_includes_error_id(self, client: TestClient, caplog):
+        """
+        測試速率限制錯誤包含 error_id
+        
+        此測試直接調用異常處理器來測試其正確性，
+        而不依賴於實際達到速率限制（因為這取決於配置）。
+        """
+        import asyncio
+        import json
+        import re
+        
+        # 創建模擬的 Request 對象
+        mock_request = MagicMock()
+        mock_request.client.host = "127.0.0.1"
+        mock_request.url.path = "/api/login"
+        
+        # 創建模擬的 RateLimitExceeded 異常
+        rate_limit_exc = MagicMock(spec=RateLimitExceeded)
+        
+        # 導入速率限制異常處理器
+        from server import rate_limit_handler
+        
+        # 捕獲日誌記錄
+        with caplog.at_level("WARNING"):
+            # 異步執行異常處理器
+            response = asyncio.run(rate_limit_handler(mock_request, rate_limit_exc))
+        
+        # 驗證響應
+        assert response.status_code == 429
+        
+        # 解析 JSON 響應內容
+        response_data = json.loads(response.body)
+        assert "error_id" in response_data
+        assert response_data["error"] == "請求次數過多"
+        assert response_data["error_id"]  # 驗證 error_id 不為空
+        
+        # 驗證 error_id 格式（應該是 8 個字元的大寫字串）
+        error_id = response_data["error_id"]
+        assert isinstance(error_id, str)
+        assert len(error_id) == 8
+        assert error_id.isupper()
+        assert re.match(r'^[A-F0-9]{8}$', error_id), "error_id 應該是 8 個十六進制字元"
+        
+        # 驗證日誌記錄
+        assert len(caplog.records) > 0, "應該記錄警告日誌"
+        log_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
+        assert any("Rate limit exceeded" in msg and error_id in msg for msg in log_messages), \
+            f"日誌應該包含 'Rate limit exceeded' 和 error_id {error_id}"
 
     def test_404_error_handling(self, client: TestClient):
         """測試 404 錯誤"""
@@ -124,13 +172,18 @@ class TestInputValidation:
         response = client.post("/api/login", json=large_payload)
         assert response.status_code == 413  # Payload Too Large
 
+    def test_oversized_request_with_default_headers(self, client: TestClient):
+        """測試使用預設標頭的超大請求"""
+        large_payload = {"code": "x" * (1024 * 1024 + 1)}
+        response = client.post("/api/login", json=large_payload)
+        assert response.status_code in [413, 422]
+
     def test_valid_json_accepted(self, client: TestClient):
         """測試有效 JSON 被接受（可能返回 401 但不是格式錯誤）"""
         response = client.post(
             "/api/login",
             json={"code": "test_code"}
         )
-        # 應該返回 401（無效代碼）而不是 422（驗證錯誤）
         assert response.status_code == 401
 
 

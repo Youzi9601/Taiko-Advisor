@@ -2,13 +2,12 @@
 
 import os
 import logging
-from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # ============================================================================
-# 路徑配置（使用絕對路徑以避免問題）
+# 路徑配置 (使用絕對路徑)
 # ============================================================================
 SONGS_DB_PATH = os.path.abspath(os.getenv("SONGS_DB_PATH", "data/songs.json"))
 USERS_DB_PATH = os.path.abspath(os.getenv("USERS_DB_PATH", "data/users.json"))
@@ -36,7 +35,19 @@ CORS_ORIGINS = [
     "http://127.0.0.1:8000",
 ]
 
-TRUSTED_HOSTS = ["localhost", "127.0.0.1"]
+# TRUSTED_HOSTS 可透過環境變數 TRUSTED_HOSTS 覆寫（逗號分隔）
+TRUSTED_HOSTS_ENV = os.getenv("TRUSTED_HOSTS")
+if TRUSTED_HOSTS_ENV:
+    TRUSTED_HOSTS = [
+        host.strip() for host in TRUSTED_HOSTS_ENV.split(",") if host.strip()
+    ]
+else:
+    # 預設信任常見本機與容器環境的 Host 標頭
+    TRUSTED_HOSTS = [
+        "localhost",
+        "127.0.0.1",
+        "host.docker.internal",
+    ]
 
 TOKEN_EXPIRY_DAYS = int(os.getenv("TOKEN_EXPIRY_DAYS", "7"))
 MAX_SESSIONS_PER_USER = int(os.getenv("MAX_SESSIONS_PER_USER", "3"))
@@ -49,6 +60,13 @@ FALLBACK_SONGS_COUNT = 15
 
 # 請求大小限制（1MB）
 MAX_REQUEST_SIZE = 1024 * 1024
+
+# 外部 CDN 資源配置（用於 CSP 和 HTML）
+CDN_MARKED_JS = "https://cdn.jsdelivr.net/npm/marked/marked.min.js"
+CDN_DOMPURIFY_JS = "https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"
+
+# 允許的消息角色
+ALLOWED_MESSAGE_ROLES = ["user", "model", "assistant"]
 
 # ============================================================================
 # 太鼓之達人歌曲類別配置
@@ -118,12 +136,15 @@ os.makedirs(LOG_DIR, exist_ok=True)
 # 配置日誌
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler(os.path.join(LOG_DIR, 'taiko_advisor.log'), encoding='utf-8'),
-        logging.StreamHandler()
-    ]
+        logging.FileHandler(
+            os.path.join(LOG_DIR, "taiko_advisor.log"), encoding="utf-8"
+        ),
+        logging.StreamHandler(),
+    ],
 )
+
 
 # ============================================================================
 # 配置驗證
@@ -132,34 +153,34 @@ def validate_config():
     """驗證必要的配置項"""
     errors = []
     warnings = []
-    
+
     # 檢查 API Key
     if not GEMINI_API_KEY:
         errors.append("⚠️ GEMINI_API_KEY 未設置，聊天功能將無法使用")
-    
+
     # 檢查歌曲資料庫
     if not os.path.exists(SONGS_DB_PATH):
         warnings.append(f"⚠️ 找不到歌曲資料庫: {SONGS_DB_PATH}")
-    
+
     # 檢查 ChromaDB
     if not os.path.exists(CHROMA_DB_PATH):
         warnings.append(f"⚠️ 找不到 ChromaDB: {CHROMA_DB_PATH}")
-    
+
     # 輸出錯誤和警告
+    # 在導入時就拋出異常，但先警告
+    logger = logging.getLogger(__name__)
+    for warning in warnings:
+        logger.warning(warning)
+
     if errors:
         error_msg = "配置錯誤：\n" + "\n".join(f"  - {e}" for e in errors)
         raise ValueError(error_msg)
-    
-    if warnings:
-        logger = logging.getLogger(__name__)
-        for warning in warnings:
-            logger.warning(warning)
+
 
 # 在開發模式下驗證配置
 if os.getenv("VALIDATE_CONFIG", "true").lower() == "true":
     try:
         validate_config()
     except ValueError as e:
-        # 在導入時就拐出異常，但先警告
+        # 記錄配置錯誤但允許應用繼續啟動
         logging.getLogger(__name__).error(str(e))
-        # 不直接中斷，讓應用繼續啟動，但記錄錯誤

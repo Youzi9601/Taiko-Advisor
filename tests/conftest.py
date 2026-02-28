@@ -70,8 +70,11 @@ def sample_chat_request():
 
 # 在測試前後的 hooks
 def pytest_configure(config):
-    """pytest 啟動時的配置"""
-    # 設置 DEBUG 模式以停用 TrustedHostMiddleware（避免 TestClient 的 Host header 問題）
+    """啟動 pytest 時的配置。
+
+    啟用 DEBUG 模式，以便在測試時讓 server.py 中因 DEBUG 啟用而停用
+    TrustedHostMiddleware，從而解決 TestClient 的 Host header 問題。
+    """
     os.environ["DEBUG"] = "True"
     # 創建測試日誌目錄
     os.makedirs("tests/logs", exist_ok=True)

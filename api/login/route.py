@@ -2,14 +2,12 @@
 登入 API 路由 - /api/login
 """
 from fastapi import APIRouter
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-import time
 import logging
 import config
 from lib.auth import validate_token
 from lib.auth.validators import sanitize_input
-from lib.services.user_service import load_users, save_users
+from lib.services.user_service import load_users
 from lib.exceptions import AuthenticationError, ValidationError
 
 logger = logging.getLogger(__name__)

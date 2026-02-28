@@ -55,12 +55,18 @@ def init_resources(gemini_key: str, chroma_path: str, collection_name: str, song
 def cleanup_resources():
     """清理全局資源 - 在應用關閉時調用"""
     global _client, _collection, _all_songs
-    
+
+    if _collection is not None:
+        # ChromaDB 集合清理
+        _collection = None
+    if _client is not None:
+        # Gemini 客戶端清理
+        _client = None
+
     _client = None
     _collection = None
     _all_songs = []
     logger.info("資源清理完成")
-
 
 def get_client() -> Optional[genai.Client]:
     """獲取 Gemini 客戶端"""

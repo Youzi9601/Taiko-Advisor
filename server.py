@@ -32,6 +32,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 import uvicorn
 import os
 import json
@@ -66,7 +67,7 @@ async def lifespan(app: FastAPI):
     
     yield
     
-    # 關閉時清理資源
+    # 應用關閉時的資源清理
     logger.info("清理資源...")
     cleanup_resources()
     logger.info("Taiko AI Advisor 已關閉")
@@ -156,15 +157,36 @@ class LimitRequestSizeMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.method in ["POST", "PUT", "PATCH"]:
             content_length = request.headers.get("content-length")
-            if content_length and int(content_length) > config.MAX_REQUEST_SIZE:
-                logger.warning(f"請求體積過大: {content_length} bytes (path: {request.url.path})")
-                return JSONResponse(
-                    status_code=413,
-                    content={"error": "請求體積過大，上限為 1MB"}
-                )
+            if content_length:
+                try:
+                    content_length_value = int(content_length)
+                except (ValueError, OverflowError):
+                    logger.warning(f"無效的 Content-Length 標頭: {content_length!r} (path: {request.url.path})")
+                    return JSONResponse(
+                        status_code=400,
+                        content={"error": "無效的 Content-Length 標頭"}
+                    )
+                # 驗證數值在合理範圍內（0 到 10MB），防止極大整數導致資源耗盡。
+                # 注意：10MB 是對 Content-Length 標頭的「安全上限」，避免客戶端宣稱極大
+                # 的請求大小而佔用過多資源；實際允許的請求體積由 config.MAX_REQUEST_SIZE
+                # 控制（目前為 1MB）。因此這裡的 10MB 僅作為合理值檢查（sanity check），
+                # 而非實際業務邏輯的大小限制。
+                if not (0 <= content_length_value <= 10 * 1024 * 1024):
+                    logger.warning(f"Content-Length 超出合理範圍: {content_length_value} (path: {request.url.path})")
+                    return JSONResponse(
+                        status_code=400,
+                        content={"error": "Content-Length 必須在 0 到 10MB 之間"}
+                    )
+                if content_length_value > config.MAX_REQUEST_SIZE:
+                    logger.warning(f"請求體積過大: {content_length_value} bytes (path: {request.url.path})")
+                    return JSONResponse(
+                        status_code=413,
+                        content={"error": "請求體積過大，上限為 1MB"}
+                    )
         return await call_next(request)
 
 app.add_middleware(LimitRequestSizeMiddleware)
+app.add_middleware(SlowAPIMiddleware)
 
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -172,8 +194,8 @@ async def add_security_headers(request: Request, call_next):
     
     安全說明：
     - 外部腳本（CDN）：允許加載
-    - 內聯腳本：已移除 'unsafe-inline'
-    - 內聯樣式：使用 nonce 機制保護
+    - 內聯腳本：使用 nonce 機制保護
+    - 內聯樣式：使用 'unsafe-inline'（可考慮未來改用 nonce）
     """
     # 為此請求生成唯一的 CSP nonce
     nonce = str(uuid4())[:12]
@@ -185,11 +207,12 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     
-    # Content-Security-Policy: 增強安全，移除對 'unsafe-inline' 的依賴
+    # Content-Security-Policy: 增強安全策略，使用 nonce 保護內聯腳本
+    # CDN URL 從 config 中讀取，確保與 index.html 中的引用保持一致
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' https://cdn.jsdelivr.net; "  # ✅ 移除 'unsafe-inline'
-        f"style-src 'self' 'nonce-{nonce}' 'unsafe-inline'; "  # ⚠️ 過渡方案
+        f"script-src 'self' 'nonce-{nonce}' {config.CDN_MARKED_JS} {config.CDN_DOMPURIFY_JS}; "
+        "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: https:; "
         "font-src 'self' https:; "
         "connect-src 'self' https://cdn.jsdelivr.net https://generativelanguage.googleapis.com; "
@@ -212,9 +235,16 @@ app.add_middleware(
 # 在開發環境（DEBUG=True）下停用 TrustedHostMiddleware，以支持 LAN IP、容器網域或反向代理存取
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 if not DEBUG:
+    # 允許透過環境變數 TRUSTED_HOSTS（逗號分隔）覆寫預設的可信任 Host 清單
+    trusted_hosts_env = os.getenv("TRUSTED_HOSTS", "").strip()
+    if trusted_hosts_env:
+        allowed_hosts = [h.strip() for h in trusted_hosts_env.split(",") if h.strip()]
+    else:
+        allowed_hosts = config.TRUSTED_HOSTS
+
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=config.TRUSTED_HOSTS
+        allowed_hosts=allowed_hosts
     )
 
 
@@ -245,12 +275,19 @@ app.include_router(chat_router, prefix="/api", tags=["chat"])
 # 主頁路由
 # ============================================================================
 @app.get("/", response_class=HTMLResponse)
-async def serve_index():
-    """提供前端 HTML"""
+async def serve_index(request: Request):
+    """
+    提供前端 HTML。
+    此端點會讀取並回傳靜態目錄中的 index.html 檔案，
+    並將其中的 {CSP_NONCE} 佔位符替換為 request.state.csp_nonce 以注入 CSP nonce。
+    """
     try:
         index_path = os.path.join(config.STATIC_DIR, "index.html")
         with open(index_path, "r", encoding="utf-8") as f:
-            return f.read()
+            html_content = f.read()
+            html_content = html_content.replace("{CSP_NONCE}", request.state.csp_nonce)
+        
+        return html_content
     except FileNotFoundError:
         return "<h1>找不到 index.html 檔案</h1>"
 

@@ -8,7 +8,7 @@
 """
 from lib.services.user_service import (
     load_users, get_user_profile, update_user_profile,
-    user_exists, get_user_sessions
+    user_exists, get_user_sessions, create_user, delete_user
 )
 
 
@@ -47,8 +47,33 @@ class TestUserServiceDataIntegrity:
         result = update_user_profile("nonexistent_123asd", {"name": "Test"})
         assert isinstance(result, bool)
     
-    def test_create_user_callable(self):
-        """測試 create_user 函數可調用"""
-        # 注意：這可能會創建實際的用戶，需要小心
-        # 在實際環境中應該使用 mock
-        pass
+    def test_create_and_delete_user(self):
+        """測試用戶創建和刪除功能"""
+        # 使用一個不太可能存在的測試代碼
+        test_code = "test_code_for_unit_test_99999"
+        
+        try:
+            # 確保測試前用戶不存在
+            if user_exists(test_code):
+                delete_user(test_code)
+            
+            # 測試創建用戶
+            result = create_user(test_code)
+            assert isinstance(result, bool)
+            assert result is True, "創建用戶應該返回 True"
+            
+            # 驗證用戶確實被創建
+            assert user_exists(test_code), "用戶創建後應該存在"
+            
+            # 測試刪除用戶
+            delete_result = delete_user(test_code)
+            assert isinstance(delete_result, bool)
+            assert delete_result is True, "刪除用戶應該返回 True"
+            
+            # 驗證用戶確實被刪除
+            assert not user_exists(test_code), "用戶刪除後應該不存在"
+            
+        finally:
+            # 確保清理測試用戶以防止測試污染
+            if user_exists(test_code):
+                delete_user(test_code)

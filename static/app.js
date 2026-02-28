@@ -34,10 +34,38 @@ function showSuccessMessage(message) {
     showToast(`✅ ${message}`, 'success');
 }
 
+// ============================================================================
+// Helper functions for managing visibility (CSP-compliant)
+// ============================================================================
+function hide(element) {
+    if (typeof element === 'string') {
+        element = document.getElementById(element);
+    }
+    if (element) element.classList.add('hidden');
+}
+
+function show(element, displayType = 'block') {
+    if (typeof element === 'string') {
+        element = document.getElementById(element);
+    }
+    if (element) {
+        element.classList.remove('hidden');
+
+    }
+}
+
+function toggle(element) {
+    if (typeof element === 'string') {
+        element = document.getElementById(element);
+    }
+    if (element) element.classList.toggle('hidden');
+}
+// ============================================================================
+
 function showLoginModal() {
-    document.getElementById('auth-overlay').style.display = 'flex';
-    document.getElementById('login-modal').style.display = 'block';
-    document.getElementById('profile-modal').style.display = 'none';
+    show('auth-overlay');
+    show('login-modal');
+    hide('profile-modal');
 }
 
 async function restoreFromLocalAccessCode() {
@@ -57,17 +85,17 @@ async function restoreFromLocalAccessCode() {
             return;
         }
 
-        document.getElementById('login-error').style.display = 'none';
-        document.getElementById('login-modal').style.display = 'none';
+        hide('login-error');
+        hide('login-modal');
 
         if (data.needs_profile) {
-            document.getElementById('auth-overlay').style.display = 'flex';
-            document.getElementById('profile-modal').style.display = 'block';
-            document.getElementById('close-profile-btn').style.display = 'none';
+            show('auth-overlay');
+            show('profile-modal');
+            hide('close-profile-btn');
             return;
         }
 
-        document.getElementById('auth-overlay').style.display = 'none';
+        hide('auth-overlay');
         await loadSessions(true);
     } catch (e) {
         console.error('恢復登入狀態失敗:', e);
@@ -103,19 +131,19 @@ async function login() {
         if (res.ok && data.success) {
             accessCode = code;
             localStorage.setItem('access_code', code);
-            document.getElementById('login-error').style.display = 'none';
-            document.getElementById('login-modal').style.display = 'none';
+            hide('login-error');
+            hide('login-modal');
 
             if (data.needs_profile) {
-                document.getElementById('profile-modal').style.display = 'block';
-                document.getElementById('close-profile-btn').style.display = 'none';
+                show('profile-modal');
+                hide('close-profile-btn');
             } else {
-                document.getElementById('auth-overlay').style.display = 'none';
+                hide('auth-overlay');
                 loadSessions(true);
             }
         } else {
             showErrorMessage(data.error || '驗證失敗，請檢查存取代碼');
-            document.getElementById('login-error').style.display = 'block';
+            show('login-error');
             document.getElementById('login-error').textContent = data.error || '驗證失敗';
         }
     } catch (e) {
@@ -150,8 +178,8 @@ async function saveProfile() {
         });
 
         if (res.ok) {
-            document.getElementById('auth-overlay').style.display = 'none';
-            document.getElementById('profile-modal').style.display = 'none';
+            hide('auth-overlay');
+            hide('profile-modal');
             showSuccessMessage('您的玩家履歷已設定 / 更新成功！');
             loadSessions();
         } else {
@@ -351,7 +379,7 @@ async function sendMessage() {
     appendMessage('user', message);
 
     // 顯示打字動畫
-    typingIndicator.style.display = 'flex';
+    show(typingIndicator);
     chatHistory.scrollTop = chatHistory.scrollHeight;
 
     try {
@@ -366,7 +394,7 @@ async function sendMessage() {
             body: JSON.stringify({ message: message, code: accessCode, history: historyToSend })
         });
 
-        typingIndicator.style.display = 'none';
+        hide(typingIndicator);
 
         if (response.status === 401) {
             appendMessage('bot', '❌ 您的存取代碼已失效，請重新登入。');
@@ -404,7 +432,7 @@ async function sendMessage() {
         statusIndicator.style.boxShadow = '0 0 10px #9ece6a';
 
     } catch (err) {
-        typingIndicator.style.display = 'none';
+        hide(typingIndicator);
         console.error('聊天錯誤:', err);
         appendMessage('bot', '❌ 連線異常，請檢查你的網路或伺服器狀態。');
         statusIndicator.style.backgroundColor = '#f7768e'; // 紅色錯誤狀態
@@ -486,13 +514,13 @@ async function openProfileModal() {
         console.error("無法載入履歷", e);
         showErrorMessage('無法載入履歷，請檢查網路連接');
     }
-    document.getElementById('auth-overlay').style.display = 'flex';
-    document.getElementById('login-modal').style.display = 'none';
-    document.getElementById('profile-modal').style.display = 'block';
-    document.getElementById('close-profile-btn').style.display = 'block'; // 允許取消
+    show('auth-overlay');
+    hide('login-modal');
+    show('profile-modal');
+    show('close-profile-btn'); // 允許取消
 }
 
 function closeProfileModal() {
-    document.getElementById('auth-overlay').style.display = 'none';
-    document.getElementById('profile-modal').style.display = 'none';
+    hide('auth-overlay');
+    hide('profile-modal');
 }

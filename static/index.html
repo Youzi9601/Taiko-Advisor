@@ -31,8 +31,8 @@
             </div>
 
             <div class="saved-sessions-container">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <h3 style="font-size: 14px; color: #9ece6a; margin: 0;">歷史紀錄</h3>
+                <div class="sessions-header">
+                    <h3>歷史紀錄</h3>
                     <button class="save-btn" onclick="saveCurrentSession()">💾 儲存對話</button>
                 </div>
                 <div id="sessions-list" class="sessions-list">
@@ -41,8 +41,7 @@
                 <button class="new-chat-btn" onclick="startNewChat()">+ 開啟新對話</button>
             </div>
 
-            <div class="sidebar-footer"
-                style="margin-top: auto; padding-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+            <div class="sidebar-footer">
                 <button class="edit-profile-btn" onclick="openProfileModal()">✏️ 修改玩家履歷</button>
                 <button class="logout-btn" onclick="logout()">登出目前帳號</button>
             </div>
@@ -65,7 +64,7 @@
                 </div>
             </div>
 
-            <div class="typing-indicator" id="typing-indicator" style="display: none;">
+            <div class="typing-indicator hidden" id="typing-indicator">
                 <div class="dot"></div>
                 <div class="dot"></div>
                 <div class="dot"></div>
@@ -81,18 +80,18 @@
     </div>
 
     <!-- 登入與設定彈窗 -->
-    <div id="auth-overlay" class="auth-overlay" style="display: none;">
+    <div id="auth-overlay" class="auth-overlay hidden">
         <!-- 登入框 -->
         <div id="login-modal" class="auth-modal">
             <h2>太鼓之達人 AI 顧問</h2>
             <p>請輸入您的存取代碼 (Access Code)</p>
             <input type="password" id="access-code-input" placeholder="Access Code">
             <button onclick="login()">登入</button>
-            <p id="login-error" class="error-text" style="display: none;">無效的存取代碼</p>
+            <p id="login-error" class="error-text hidden">無效的存取代碼</p>
         </div>
 
         <!-- 初次登入或修改的用戶畫像問卷 -->
-        <div id="profile-modal" class="auth-modal" style="display: none;">
+        <div id="profile-modal" class="auth-modal hidden">
             <h2>建立您的太鼓履歷</h2>
             <p>讓我們更了解您的實力，以便 AI 提供精準推薦！</p>
 
@@ -127,10 +126,9 @@
                 </select>
             </div>
 
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <button onclick="saveProfile()" style="flex: 1;">儲存並開始使用</button>
-                <button id="close-profile-btn" onclick="closeProfileModal()"
-                    style="flex: 1; background: #3b4261; display: none;">取消修改</button>
+            <div class="profile-buttons">
+                <button onclick="saveProfile()">儲存並開始使用</button>
+                <button id="close-profile-btn" class="cancel-btn hidden" onclick="closeProfileModal()">取消修改</button>
             </div>
         </div>
     </div>
@@ -138,8 +136,10 @@
     <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <!-- 載入 Marked.js 用於渲染 Markdown 回覆 -->
+    <!-- ⚠️ 注意：CDN URL 需與 config.py 中的 CDN_MARKED_JS 保持一致 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- 載入 DOMPurify 用於 XSS 防護 -->
+    <!-- ⚠️ 注意：CDN URL 需與 config.py 中的 CDN_DOMPURIFY_JS 保持一致 -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
     <script src="/static/app.js"></script>
 </body>

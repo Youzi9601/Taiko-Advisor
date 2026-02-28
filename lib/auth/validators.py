@@ -23,11 +23,24 @@ def sanitize_input(text: str, max_length: int = 500) -> str:
     # 限制長度
     text = text[:max_length]
     
-    # 移除控制字符和危險字符
-    text = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', text)
+    # 統一換行符：將 Windows 風格的換行符 \r\n 以及單獨的 \r 視為 \n
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
     
-    # 移除過多的換行符（防止用戶填充大量換行符）
+    # 壓縮連續換行符（3 個以上壓縮為 2 個）
     text = re.sub(r'\n{3,}', '\n\n', text)
+    
+    # 限制最大行數，避免極端長的多行內容
+    max_lines = 50
+    lines = text.split('\n')
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        text = '\n'.join(lines)
+    
+    # 移除大部分控制字符（\x00-\x09, \x0b-\x0c, \x0e-\x1f, \x7f-\x9f），其中刻意排除 \x0a，
+    # 以保留換行符 \n (\x0a)，維持多行輸入（如提示詞、程式碼片段等）的結構與可讀性。
+    # 此處已對多行內容做了基本限制（統一換行符與限制最大行數），實際使用時仍需搭配
+    # 更高層級的 Prompt Injection 防護與權限隔離。
+    text = re.sub(r'[\x00-\x09\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', text)
     
     return text.strip()
 

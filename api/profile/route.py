@@ -6,8 +6,8 @@
 - POST: 支援 Authorization header 或 body 中的 code 欄位（向下相容）
 """
 from fastapi import APIRouter, Header
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from typing import Optional
 import logging
 import config
 from lib.auth import validate_token
@@ -23,7 +23,7 @@ router = APIRouter()
 
 
 class ProfileRequest(BaseModel):
-    code: str
+    code: Optional[str] = None  # 可選，優先使用 Authorization header
     name: str
     level: str
     star_pref: str

@@ -54,8 +54,7 @@ def init_chromadb():
     print("開始計算向量 (Embedding)...")
     embeddings = encoder.encode(documents).tolist()
 
-    # 批次存入 ChromaDB
-    # 為避免一次塞太多，我們切分批次
+    # 以批次方式存入 ChromaDB
     batch_size = config.CHROMA_BATCH_SIZE
     for i in range(0, len(ids), batch_size):
         end_idx = min(i + batch_size, len(ids))

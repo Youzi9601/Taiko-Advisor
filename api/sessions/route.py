@@ -6,8 +6,8 @@
 - POST: 支援 Authorization header 或 body 中的 code 欄位（向下相容）
 """
 from fastapi import APIRouter, Header
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from typing import Optional
 import uuid
 import logging
 import config
@@ -30,7 +30,7 @@ class MessageItem(BaseModel):
 
 
 class SaveSessionRequest(BaseModel):
-    code: str
+    code: Optional[str] = None  # 可選，優先使用 Authorization header
     title: str
     messages: list[MessageItem]
 
@@ -76,7 +76,7 @@ async def save_session(req: SaveSessionRequest, authorization: str = Header(None
             code = sanitize_input(parts[1], max_length=config.ACCESS_CODE_MAX_LENGTH)
     
     # Fallback 到 body 中的 code（向下相容）
-    if not code:
+    if not code and req.code:
         code = sanitize_input(req.code, max_length=config.ACCESS_CODE_MAX_LENGTH)
     
     if not code:
@@ -94,11 +94,15 @@ async def save_session(req: SaveSessionRequest, authorization: str = Header(None
     if len(req.messages) == 0:
         raise ValidationError("對話內容不能為空")
     
-    # 限制每則訊息的長度，防止過大的 payload
+    # 限制每則訊息的長度並清理輸入
     sanitized_messages = []
+    # 僅允許預期的 role 值，避免儲存不合法資料
     for m in req.messages:
+        sanitized_role = sanitize_input(m.role, max_length=20)
+        if sanitized_role not in config.ALLOWED_MESSAGE_ROLES:
+            raise ValidationError("無效的對話角色")
         sanitized_content = sanitize_input(m.content, max_length=config.CHAT_MESSAGE_MAX_LENGTH)
-        sanitized_messages.append({"role": m.role, "content": sanitized_content})
+        sanitized_messages.append({"role": sanitized_role, "content": sanitized_content})
     
     # 檢查是否超過上限
     sessions = get_user_sessions(code)
